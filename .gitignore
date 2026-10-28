@@ -1,0 +1,11 @@
+# Original assignment
+/docs/ASSIGNMENT.md
+
+# Dependencies and build
+node_modules/
+dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
