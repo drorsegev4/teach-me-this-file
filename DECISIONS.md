@@ -15,6 +15,8 @@ Working draft. Reviewers read this file, so it must match what the code does. Up
 - **Progress lives in server state, not in the chat history.** Completed steps and the current step are stored separately from messages.
 - **Mock mode (`AI_MODE=mock`).** Serves a saved plan and scripted replies, so the page can be built and tested without the provider. The real model is checked separately with `npm run plan:sample` and one live chat turn.
 
+- **Dev-only prompt playground.** Available at `/playground` when `DEV_TOOLS=1` or `NODE_ENV=development`. It edits the real prompt files, builds plans, runs the student simulator, and saves and replays test cases from `tests/scenarios/`. Production builds exclude the page and the `/api/dev` routes, and the API never returns the Groq key.
+
 ## Hosting (open: two options recorded)
 
 Both options satisfy the assignment's requirement for a live front end and back end. Neither is chosen yet.

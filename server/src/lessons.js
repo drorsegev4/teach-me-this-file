@@ -5,8 +5,8 @@ import { ProviderError } from './ai.js';
 import { generateLessonPlan, PlanError } from './lessonPlan.js';
 
 // The hardcoded sample for this stage; the upload screen replaces these later.
-const sampleText = readFileSync(new URL('../fixtures/sample-document.txt', import.meta.url), 'utf8');
-const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
+export const sampleText = readFileSync(new URL('../fixtures/sample-document.txt', import.meta.url), 'utf8');
+export const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 
 // One plan is shared by every request until a fresh one is asked for. Concurrent
 // requests await the same promise, so a double click makes one model call.

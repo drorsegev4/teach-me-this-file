@@ -15,6 +15,13 @@ export class ChatError extends Error {
 
 const stepId = index => `step-${index + 1}`;
 
+// Student answers given on each step so far.
+function attemptsPerStep(messages, steps) {
+  return Object.fromEntries(steps.map((_, i) => [
+    stepId(i), messages.filter(message => message.role === 'student' && message.stepId === stepId(i)).length,
+  ]));
+}
+
 // One lesson session in memory. A turn commits only after the tutor's full reply is ready, so a
 // stopped or failed reply leaves progress and history unchanged.
 export function createChatService({ ai, store }) {
@@ -29,9 +36,15 @@ export function createChatService({ ai, store }) {
       steps: plan.steps.map((step, i) => ({ id: stepId(i), title: step.title })),
       currentStepId: index < plan.steps.length ? stepId(index) : null,
       completedStepIds: completed,
+      attemptsPerStep: attemptsPerStep(messages, plan.steps),
       lessonComplete: index >= plan.steps.length,
       messages,
     };
+  }
+
+  function reset() {
+    if (busy) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
+    session = null;
   }
 
   async function turn({ type, text, fresh = false, onChunk = () => {}, signal }) {
@@ -55,6 +68,7 @@ export function createChatService({ ai, store }) {
       const student = type === 'message' ? { id: base.messages.length + 1, role: 'student', text, stepId: stepId(base.index), quote: null } : null;
       const check = type === 'message' ? await ai.classify({ rules: plan.rules, step, history, studentText: text }) : { status: 'open' };
 
+      const attempt = base.messages.filter(message => message.role === 'student' && message.stepId === stepId(base.index)).length + (student ? 1 : 0);
       let replyText;
       let advanced = false;
       if (check.status === 'off_file') {
@@ -64,12 +78,15 @@ export function createChatService({ ai, store }) {
         const status = check.status === 'understood' ? 'understood' : check.status === 'keep_going' ? 'keep_going' : 'open';
         advanced = status === 'understood';
         replyText = await ai.replyStream({
-          rules: plan.rules, status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, onChunk, signal,
+          rules: plan.rules, status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, attempt, onChunk, signal,
         });
       }
       if (signal?.aborted) throw new ChatError('Stopped. Your message was not sent.', 499);
 
-      const tutor = { id: base.messages.length + (student ? 2 : 1), role: 'tutor', text: replyText, stepId: stepId(base.index), quote: step.source };
+      const tutor = {
+        id: base.messages.length + (student ? 2 : 1), role: 'tutor', text: replyText, stepId: stepId(base.index), quote: step.source,
+        status: check.status, attempt,
+      };
       if (student) base.messages.push(student);
       base.messages.push(tutor);
       if (advanced) base.completed.push(stepId(base.index));
@@ -81,7 +98,7 @@ export function createChatService({ ai, store }) {
     }
   }
 
-  return { view, turn };
+  return { view, turn, reset };
 }
 
 const turnBody = z.discriminatedUnion('type', [

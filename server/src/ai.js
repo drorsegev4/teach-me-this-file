@@ -1,14 +1,20 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { lessonPlanSchema } from './lessonPlan.js';
 
 export const MODEL = 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Plain text so the prompts can be tuned without touching code.
-const planInstructions = readFileSync(new URL('../prompts/lesson_plan.md', import.meta.url), 'utf8');
-const checkInstructions = readFileSync(new URL('../prompts/check.md', import.meta.url), 'utf8');
-const tutorInstructions = readFileSync(new URL('../prompts/tutor.md', import.meta.url), 'utf8');
+export const PROMPT_NAMES = ['lesson_plan', 'check', 'tutor'];
+
+// Read on every call, so edits to the prompt files apply without a restart.
+export function readPrompt(name) {
+  return readFileSync(new URL(`../prompts/${name}.md`, import.meta.url), 'utf8');
+}
+
+export function writePrompt(name, text) {
+  writeFileSync(new URL(`../prompts/${name}.md`, import.meta.url), text);
+}
 
 export const checkSchema = z.object({
   status: z.enum(['understood', 'keep_going', 'off_file']),
@@ -21,13 +27,13 @@ export function createAI({ apiKey, fetchImpl = fetch } = {}) {
   return {
     async planLesson({ text, teacherPrompt, problem }) {
       return callStructured({
-        apiKey, fetchImpl, name: 'lesson_plan', instructions: planInstructions,
+        apiKey, fetchImpl, name: 'lesson_plan', instructions: readPrompt('lesson_plan'),
         input: { teacherPrompt, material: text, ...(problem ? { previousProblem: problem } : {}) },
         schema: lessonPlanSchema,
       });
     },
     async classify(input) {
-      return callStructured({ apiKey, fetchImpl, name: 'step_check', instructions: checkInstructions, input, schema: checkSchema });
+      return callStructured({ apiKey, fetchImpl, name: 'step_check', instructions: readPrompt('check'), input, schema: checkSchema });
     },
     async replyStream(input) {
       return streamTutorReply({ apiKey, fetchImpl, ...input });
@@ -115,9 +121,9 @@ async function callStructured({ apiKey, fetchImpl, name, instructions, input, sc
 }
 
 // Streams the tutor's text as it arrives. An abort from the caller rejects the read and no text is kept.
-async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextStep, studentText, history, onChunk, signal }) {
+async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextStep, studentText, history, attempt, onChunk, signal }) {
   requireKey(apiKey);
-  const payload = { rules, status, step: step.title, source: step.source, nextStep: nextStep?.title ?? null, studentText, history };
+  const payload = { rules, status, step: step.title, source: step.source, nextStep: nextStep?.title ?? null, studentText, history, attempt };
   let response;
   try {
     response = await fetchImpl(GROQ_URL, {
@@ -127,7 +133,7 @@ async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextSt
       body: JSON.stringify({
         model: MODEL, temperature: 0.4, reasoning_effort: 'low', max_completion_tokens: 800, stream: true,
         messages: [
-          { role: 'system', content: tutorInstructions },
+          { role: 'system', content: readPrompt('tutor') },
           { role: 'user', content: JSON.stringify(payload) },
         ],
       }),
