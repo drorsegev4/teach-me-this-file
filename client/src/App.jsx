@@ -51,7 +51,6 @@ export default function App() {
             <button className="w-full rounded-xl border border-stone-200 bg-white p-4 text-left" aria-expanded={isOpen} onClick={() => setOpenStep(isOpen ? null : index)}>
               <span className="text-xs font-semibold uppercase tracking-wide text-teal-700">Step {index + 1} of {total}</span>
               <span className="mt-1 block font-medium">{step.title}</span>
-              {step.dependsOnPrevious && index > 0 && <span className="mt-1 block text-xs text-stone-500">Builds on step {index}</span>}
             </button>
             {isOpen && <blockquote className="mt-2 rounded-xl bg-stone-50 p-4 text-sm leading-6 text-stone-700">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">From the material</span>

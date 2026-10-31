@@ -14,7 +14,6 @@ export const lessonPlanSchema = z.object({
   steps: z.array(z.object({
     title: z.string().max(120),
     source: z.string().max(300),
-    dependsOnPrevious: z.boolean(),
   }).strict()).max(MAX_STEPS),
   error: z.string().max(300).nullable(),
 }).strict();

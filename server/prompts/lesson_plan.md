@@ -14,7 +14,6 @@ Rules object:
 
 Steps:
 - Write 3 to 7 steps, one idea per step, from simple to complex.
-- dependsOnPrevious is true when the step needs the idea from the step before it, otherwise false. The first step is always false.
 - Every step has a source: an exact quote copied from the material, 25 words or fewer. Punctuation may differ, but every word must match in order. Never paraphrase or invent a quote.
 - No two steps may use the same quote.
 - Step titles are 8 words or fewer, in the lesson language.

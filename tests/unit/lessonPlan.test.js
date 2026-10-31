@@ -11,9 +11,9 @@ const rules = { language: 'English', audience: '7th grade', timeLimit: '15 minut
 const validPlan = {
   rules,
   steps: [
-    { title: 'Why does a puddle disappear?', source: 'Evaporation is the change of liquid water into water vapor', dependsOnPrevious: false },
-    { title: 'What makes evaporation faster?', source: quote, dependsOnPrevious: true },
-    { title: 'Explain it in your own words', source: 'spreading the same amount of water over a larger exposed surface', dependsOnPrevious: true },
+    { title: 'Why does a puddle disappear?', source: 'Evaporation is the change of liquid water into water vapor' },
+    { title: 'What makes evaporation faster?', source: quote },
+    { title: 'Explain it in your own words', source: 'spreading the same amount of water over a larger exposed surface' },
   ],
   error: null,
 };
@@ -76,10 +76,15 @@ test('rejects a title longer than 8 words', () => {
   assert.throws(() => checkLessonPlan(long, document), /more than 8 words/);
 });
 
-test('rejects a plan without dependsOnPrevious or rules', () => {
-  const missingFlag = structuredClone(validPlan);
-  delete missingFlag.steps[0].dependsOnPrevious;
-  assert.throws(() => checkLessonPlan(missingFlag, document));
+test('rejects steps with unexpected fields', () => {
+  const extra = structuredClone(validPlan);
+  extra.steps[0].dependsOnPrevious = false;
+  assert.throws(() => checkLessonPlan(extra, document));
+});
+
+test('rejects a plan without rules', () => {
+  const noRules = { steps: validPlan.steps, error: null };
+  assert.throws(() => checkLessonPlan(noRules, document));
   const oldShape = { assumptions: 'Grade 7', steps: validPlan.steps, error: null };
   assert.throws(() => checkLessonPlan(oldShape, document));
 });

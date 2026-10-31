@@ -4,7 +4,7 @@ import { createAI, ProviderError } from '../../server/src/ai.js';
 
 const plan = {
   rules: { language: 'English', audience: '7th grade', timeLimit: null, method: 'direct explanation' },
-  steps: [{ title: 'Hook', source: 'Evaporation is the change', dependsOnPrevious: false }],
+  steps: [{ title: 'Hook', source: 'Evaporation is the change' }],
   error: null,
 };
 
