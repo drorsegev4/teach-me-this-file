@@ -51,8 +51,8 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
     setError('');
     onDismissAppError?.();
     try {
-      await buildLesson({ file, prompt: prompt.trim(), apiKey: apiKey.trim() });
-      onBuilt();
+      const built = await buildLesson({ file, prompt: prompt.trim(), apiKey: apiKey.trim() });
+      onBuilt(built);
     } catch (failure) {
       setError(`${failure.message} Change the file or the goal, then try again.`);
       setBuilding(false);

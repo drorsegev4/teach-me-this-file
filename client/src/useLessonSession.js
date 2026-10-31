@@ -13,6 +13,7 @@ export function useLessonSession() {
   const [notice, setNotice] = useState('');
   const [openSource, setOpenSource] = useState(null);
   const [apiKey, setApiKey] = useState('');
+  const [fileName, setFileName] = useState('');
   const controller = useRef(null);
 
   useEffect(() => {
@@ -52,7 +53,8 @@ export function useLessonSession() {
   }
 
   // Called by the setup screen once the file is built; the chat then starts on that lesson.
-  function startBuiltLesson() {
+  function startBuiltLesson(built) {
+    setFileName(built.fileName ?? '');
     setChat(null);
     run({ type: 'start', fresh: false });
   }
@@ -73,7 +75,7 @@ export function useLessonSession() {
 
   return {
     chat, partial, pending, draft, setDraft, streaming, error, setError, notice,
-    openSource, setOpenSource, apiKey, setApiKey,
+    openSource, setOpenSource, apiKey, setApiKey, fileName,
     startBuiltLesson, newLesson, send, stop: () => controller.current?.abort(),
   };
 }

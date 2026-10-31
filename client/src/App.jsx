@@ -1,3 +1,4 @@
+import LessonCanvas from './LessonCanvas.jsx';
 import LessonChat from './LessonChat.jsx';
 import SetupScreen from './SetupScreen.jsx';
 import Workspace from './Workspace.jsx';
@@ -13,5 +14,5 @@ export default function App() {
     return <SetupScreen apiKey={apiKey} onKeyChange={setApiKey} onBuilt={startBuiltLesson} appError={error} onDismissAppError={() => setError('')} />;
   }
 
-  return <Workspace chatPane={<LessonChat session={session} />} canvasPane={<div className="flex-1 p-6 text-sm text-stone-500">Lesson canvas</div>} />;
+  return <Workspace chatPane={<LessonChat session={session} />} canvasPane={<LessonCanvas session={session} />} />;
 }
