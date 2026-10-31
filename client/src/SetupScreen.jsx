@@ -7,6 +7,14 @@ const WARN_AT = 450;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ['pdf', 'docx'];
 const EXAMPLE = 'Teach this to 7th graders, in French. Be Socratic. Keep it under 15 minutes.';
+// Each chip adds one part of a good goal: who it is for, the language, how to teach, and how long.
+const CHIPS = [
+  { label: '7th graders', phrase: 'Teach this to 7th graders.' },
+  { label: 'In French', phrase: 'Teach it in French.' },
+  { label: 'Socratic', phrase: 'Be Socratic: ask questions instead of explaining everything.' },
+  { label: 'Check understanding', phrase: 'Check understanding after each step.' },
+  { label: 'Under 15 min', phrase: 'Keep it under 15 minutes.' },
+];
 
 function formatSize(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -78,12 +86,25 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
       <h1 className="mt-2 text-xl font-semibold">Build a lesson from a file</h1>
 
       <label htmlFor="goal" className="mt-6 block text-sm font-medium">What should the student learn from this file?</label>
+      <p id="goal-hint" className="mt-1 text-xs text-stone-500">Say who it is for, how the tutor should teach, and how long. The tutor follows this closely.</p>
       <textarea id="goal" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
-        disabled={building} placeholder={EXAMPLE} aria-describedby="goal-help"
+        disabled={building} placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
         className="mt-2 w-full rounded-xl border border-stone-300 bg-white p-3 text-sm leading-6 disabled:opacity-60" />
       <div id="goal-help" className="mt-1 flex items-start justify-between gap-3 text-xs">
         <p className="text-stone-600" role="status">{reason}</p>
         <p className={counterClass} aria-live="polite">{prompt.length} / {MAX_PROMPT}</p>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Add to your goal">
+        {CHIPS.map(chip => {
+          const added = prompt.includes(chip.phrase);
+          const wouldExceed = prompt.length + chip.phrase.length + 1 > MAX_PROMPT;
+          return <button key={chip.label} type="button" disabled={building || added || wouldExceed} aria-pressed={added} title={chip.phrase}
+            onClick={() => setPrompt(current => `${current.trim()} ${chip.phrase}`.trim())}
+            className={`rounded-full border px-3 py-1 text-xs disabled:opacity-50 ${added ? 'border-teal-600 bg-teal-50 text-teal-900' : 'border-stone-300 bg-white text-stone-700 hover:border-teal-500'}`}>
+            {added ? '✓ ' : '+ '}{chip.label}
+          </button>;
+        })}
       </div>
 
       <input ref={input} type="file" accept=".docx,.pdf" className="sr-only" tabIndex={-1} aria-hidden="true" disabled={building}
