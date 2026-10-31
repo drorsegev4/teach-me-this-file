@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getChat, streamTurn } from './api.js';
+import SetupScreen from './SetupScreen.jsx';
 
 export default function App() {
   const [chat, setChat] = useState(null);
@@ -10,6 +11,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [openSource, setOpenSource] = useState(null);
+  const [apiKey, setApiKey] = useState('');
   const controller = useRef(null);
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function App() {
       const state = await streamTurn(body, {
         onChunk: text => setPartial(current => current + text),
         signal: controller.current.signal,
+        apiKey: apiKey.trim(),
       });
       setChat(state);
       setPartial('');
@@ -48,7 +51,17 @@ export default function App() {
     }
   }
 
-  const start = fresh => run({ type: 'start', fresh });
+  // Called by the setup screen once the file is built; the chat then starts on that lesson.
+  function startBuiltLesson() {
+    setChat(null);
+    run({ type: 'start', fresh: false });
+  }
+
+  function newLesson() {
+    setChat(null);
+    setError('');
+    setNotice('');
+  }
 
   function send(event) {
     event.preventDefault();
@@ -63,6 +76,10 @@ export default function App() {
   const currentIndex = steps.findIndex(step => step.id === chat?.currentStepId);
   const stepLabel = !chat ? '' : chat.lessonComplete ? `Lesson complete · ${total} of ${total}` : `Step ${currentIndex + 1} of ${total}`;
   const rulesLine = chat && [chat.rules.audience, chat.rules.language, chat.rules.method, chat.rules.timeLimit].filter(Boolean).join(' · ');
+
+  if (!chat && !streaming) {
+    return <SetupScreen apiKey={apiKey} onKeyChange={setApiKey} onBuilt={startBuiltLesson} appError={error} onDismissAppError={() => setError('')} />;
+  }
 
   return <main className="mx-auto flex min-h-dvh max-w-md flex-col px-4 py-6">
     <header className="mb-4">
@@ -86,15 +103,9 @@ export default function App() {
 
     {error && <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
       <p>{error}</p>
-      <button className="mt-2 underline disabled:opacity-50" disabled={streaming} onClick={() => (chat ? setError('') : start(false))}>
-        {chat ? 'Dismiss' : 'Try again'}
-      </button>
+      <button className="mt-2 underline disabled:opacity-50" disabled={streaming} onClick={() => setError('')}>Dismiss</button>
     </div>}
     {notice && <p role="status" className="mb-4 text-sm text-stone-600">{notice}</p>}
-
-    {!chat && !streaming && <button className="w-full rounded-xl bg-teal-700 px-4 py-3 font-medium text-white disabled:opacity-50" disabled={streaming} onClick={() => start(false)}>
-      Start lesson
-    </button>}
 
     {(chat || streaming) && <section aria-label="Conversation" className="flex-1 space-y-3" role="log" aria-live="polite">
       {chat?.messages.map(message => message.role === 'student'
@@ -115,7 +126,7 @@ export default function App() {
 
     {chat?.lessonComplete && !streaming && <div className="mt-6 rounded-xl bg-teal-950 p-4 text-sm text-teal-100">
       <p>You finished every step.</p>
-      <button className="mt-3 w-full rounded-xl border border-teal-400 px-4 py-2 text-white" onClick={() => start(true)}>Start over</button>
+      <button className="mt-3 w-full rounded-xl border border-teal-400 px-4 py-2 text-white" onClick={newLesson}>New lesson</button>
     </div>}
 
     {chat && !chat.lessonComplete && <form onSubmit={send} className="sticky bottom-0 mt-6 bg-[#faf9f6] pt-3">
