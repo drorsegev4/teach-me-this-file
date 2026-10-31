@@ -93,12 +93,12 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
         onDragLeave={() => setDragging(false)}
         onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
         className={`mt-2 rounded-2xl border bg-white shadow-sm transition focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-600/20 ${dragging ? 'border-teal-600 bg-teal-50/40' : 'border-stone-300'}`}>
-        <textarea id="goal" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={3}
+        <textarea id="goal" dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={3}
           disabled={building} placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
           className="block w-full resize-none rounded-t-2xl bg-transparent p-4 text-sm leading-6 outline-none placeholder:text-stone-400 disabled:opacity-60" />
 
         {file && <div className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-xl bg-stone-100 px-3 py-2 text-sm">
-          <p className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
+          <p dir="auto" className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
           <button type="button" aria-label={`Remove ${file.name}`} disabled={building} onClick={() => setFile(null)}
             className="shrink-0 rounded-md px-2 text-lg leading-none text-stone-600 hover:bg-stone-200 disabled:opacity-50">×</button>
         </div>}
@@ -147,7 +147,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
       </details>
 
       <button type="submit" disabled={!canBuild} className="mt-6 w-full rounded-xl bg-teal-700 px-4 py-3 font-medium text-white disabled:opacity-50">
-        {building && <span aria-hidden="true" className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent align-[-1px]" />}
+        {building && <span aria-hidden="true" className="me-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent align-[-1px]" />}
         {building ? 'Building lesson…' : 'Build lesson'}
       </button>
       {building && <p role="status" className="mt-2 text-center text-xs text-stone-600">{stage} This can take up to a minute.</p>}

@@ -13,7 +13,7 @@ export default function Workspace({ chatPane, canvasPane }) {
           onClick={() => setTab(id)} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${tab === id ? 'bg-white shadow-sm' : 'text-stone-600'}`}>{label}</button>)}
       </div>
     </nav>
-    <section id="panel-chat" role="tabpanel" aria-labelledby="tab-chat" className={`${tab === 'chat' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:flex lg:w-[420px] lg:shrink-0 lg:border-r lg:border-stone-200`}>
+    <section id="panel-chat" role="tabpanel" aria-labelledby="tab-chat" className={`${tab === 'chat' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:flex lg:w-[420px] lg:shrink-0 lg:border-e lg:border-stone-200`}>
       {chatPane}
     </section>
     <section id="panel-lesson" role="tabpanel" aria-labelledby="tab-lesson" className={`${tab === 'lesson' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:flex`}>
