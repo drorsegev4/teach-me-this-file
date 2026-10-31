@@ -17,7 +17,7 @@ export function writePrompt(name, text) {
 }
 
 export const checkSchema = z.object({
-  status: z.enum(['understood', 'keep_going', 'off_file']),
+  status: z.enum(['understood', 'keep_going', 'off_file', 'no_attempt']),
 }).strict();
 
 export class ProviderError extends Error {}

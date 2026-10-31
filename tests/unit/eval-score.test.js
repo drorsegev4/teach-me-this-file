@@ -10,14 +10,29 @@ test('a row passes only when every run matches', () => {
   assert.equal(result.passed, 0);
 });
 
+test('a mustNeverFail row passes with any label except understood', () => {
+  const result = scoreEval([
+    row(1, 'not_understood', ['keep_going', 'off_file', 'keep_going'], true),
+  ]);
+  assert.equal(result.scored[0].passed, true);
+  assert.equal(result.guardViolations, 0);
+});
+
 test('any understood on a mustNeverFail row fails the whole eval', () => {
   const rows = [
-    row(1, 'keep_going', ['keep_going', 'keep_going', 'keep_going'], true),
-    row(2, 'keep_going', ['keep_going', 'understood', 'keep_going'], true),
+    row(1, 'not_understood', ['keep_going', 'keep_going', 'keep_going'], true),
+    row(2, 'not_understood', ['keep_going', 'understood', 'keep_going'], true),
   ];
   const result = scoreEval(rows, { passRate: 0 });
+  assert.equal(result.scored[1].passed, false);
   assert.equal(result.guardViolations, 1);
   assert.equal(result.pass, false);
+});
+
+test('a provider error on a mustNeverFail row is a failed run', () => {
+  const result = scoreEval([row(1, 'not_understood', ['keep_going', 'error: timeout', 'keep_going'], true)], { passRate: 0 });
+  assert.equal(result.scored[0].passed, false);
+  assert.equal(result.guardViolations, 0);
 });
 
 test('overall pass needs at least the pass rate', () => {
