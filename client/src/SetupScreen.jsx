@@ -62,7 +62,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
   const counterClass = prompt.length >= WARN_AT ? 'font-semibold text-red-600' : 'text-stone-500';
 
   return <main className="flex min-h-dvh items-center justify-center px-4 py-8">
-    <form onSubmit={build} noValidate className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-sm ring-1 ring-stone-200 sm:p-8">
+    <form onSubmit={build} noValidate aria-busy={building} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-sm ring-1 ring-stone-200 sm:p-8">
       <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Teach Me This File</p>
       <h1 className="mt-2 text-xl font-semibold">Build a lesson from a file</h1>
 
@@ -110,6 +110,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
       </details>
 
       <button type="submit" disabled={!canBuild} className="mt-6 w-full rounded-xl bg-teal-700 px-4 py-3 font-medium text-white disabled:opacity-50">
+        {building && <span aria-hidden="true" className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent align-[-1px]" />}
         {building ? 'Building lesson…' : 'Build lesson'}
       </button>
       {building && <p role="status" className="mt-2 text-center text-xs text-stone-600">Reading the file and checking every quote. This can take up to a minute.</p>}
