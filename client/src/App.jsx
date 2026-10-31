@@ -1,75 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { getChat, streamTurn } from './api.js';
 import SetupScreen from './SetupScreen.jsx';
+import { useLessonSession } from './useLessonSession.js';
 
 export default function App() {
-  const [chat, setChat] = useState(null);
-  const [partial, setPartial] = useState('');
-  const [pending, setPending] = useState(null);
-  const [draft, setDraft] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [openSource, setOpenSource] = useState(null);
-  const [apiKey, setApiKey] = useState('');
-  const controller = useRef(null);
-
-  useEffect(() => {
-    getChat().then(setChat).catch(failure => setError(failure.message));
-  }, []);
-
-  async function run(body, { onStart } = {}) {
-    controller.current = new AbortController();
-    setStreaming(true);
-    setError('');
-    setNotice('');
-    setPartial('');
-    onStart?.();
-    try {
-      const state = await streamTurn(body, {
-        onChunk: text => setPartial(current => current + text),
-        signal: controller.current.signal,
-        apiKey: apiKey.trim(),
-      });
-      setChat(state);
-      setPartial('');
-      setPending(null);
-    } catch (failure) {
-      if (failure.name === 'AbortError') {
-        // Stop: nothing was committed, so the student's message goes back into the box.
-        setNotice('Stopped. Your message was not sent.');
-        if (body.type === 'message') setDraft(body.text);
-      } else {
-        setError(failure.message);
-        if (body.type === 'message') setDraft(body.text);
-      }
-      setPartial('');
-      setPending(null);
-    } finally {
-      setStreaming(false);
-      controller.current = null;
-    }
-  }
-
-  // Called by the setup screen once the file is built; the chat then starts on that lesson.
-  function startBuiltLesson() {
-    setChat(null);
-    run({ type: 'start', fresh: false });
-  }
-
-  function newLesson() {
-    setChat(null);
-    setError('');
-    setNotice('');
-  }
-
-  function send(event) {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text || streaming) return;
-    setDraft('');
-    run({ type: 'message', text }, { onStart: () => setPending(text) });
-  }
+  const session = useLessonSession();
+  const { chat, partial, pending, draft, setDraft, streaming, error, setError, notice, openSource, setOpenSource, apiKey, setApiKey, startBuiltLesson, newLesson, send, stop } = session;
 
   const steps = chat?.steps ?? [];
   const total = steps.length;
@@ -123,7 +57,7 @@ export default function App() {
       {pending && <p className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-teal-700/80 px-4 py-2 text-sm text-white">{pending}</p>}
       {streaming && <div className="max-w-[90%]">
         <p className="rounded-2xl rounded-bl-sm bg-white px-4 py-2 text-sm leading-6 shadow-sm">{partial || <span className="text-stone-500">Tutor is thinking…</span>}</p>
-        <button className="mt-2 rounded-lg border border-stone-300 px-3 py-1 text-xs" onClick={() => controller.current?.abort()}>Stop</button>
+        <button className="mt-2 rounded-lg border border-stone-300 px-3 py-1 text-xs" onClick={stop}>Stop</button>
       </div>}
     </section>}
 
