@@ -83,7 +83,10 @@ export default function App() {
 
   return <main className="mx-auto flex min-h-dvh max-w-lg flex-col px-4 py-6">
     <header className="mb-4">
-      <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Teach Me This File</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Teach Me This File</p>
+        <button className="text-xs text-teal-800 underline disabled:opacity-50" disabled={streaming} onClick={newLesson}>New lesson</button>
+      </div>
       <div className="mt-1 flex items-baseline justify-between gap-3">
         <h1 className="text-xl font-semibold">Lesson</h1>
         {chat && <p className="text-sm font-medium text-teal-800" aria-live="polite">{stepLabel}</p>}
