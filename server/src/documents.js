@@ -2,6 +2,13 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Multipart file names arrive decoded as Latin-1, so UTF-8 names (Hebrew, Arabic, accents) turn into
+// mojibake. Re-decode the bytes as UTF-8 when that round trip is clean; otherwise keep the name as sent.
+export function displayName(name) {
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  return decoded.includes('�') ? name : decoded;
+}
 const TIMEOUT_MS = 30000;
 const READER = fileURLToPath(new URL('./documentReader.js', import.meta.url));
 
@@ -23,7 +30,7 @@ export function extractDocument(file) {
       settled = true;
       clearTimeout(timer);
       child.kill();
-      if (error) reject(error); else resolve({ name: file.originalname, ...result });
+      if (error) reject(error); else resolve({ name: displayName(file.originalname), ...result });
     };
     const timer = setTimeout(() => finish(new Error('Reading this document took too long. Try a smaller file.')), TIMEOUT_MS);
     child.stdout.setEncoding('utf8');
