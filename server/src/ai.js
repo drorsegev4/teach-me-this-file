@@ -112,6 +112,7 @@ async function callStructured({ apiKey, fetchImpl, name, instructions, input, sc
   }
   if (!response.ok) {
     // Never return or log the provider body; it may echo request data.
+    if (response.status === 413) throw new ProviderError('The material is too large for one request. Use a shorter file.');
     throw new ProviderError(`Groq request failed (${response.status}).`);
   }
   const payload = await response.json();

@@ -12,6 +12,8 @@ export const sampleText = readFileSync(new URL('../fixtures/sample-document.txt'
 export const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 export const MIN_PROMPT_CHARS = 20;
 export const MAX_PROMPT_CHARS = 500;
+// A conservative guess below the size that failed with Groq 413. Not yet tuned against Groq's exact limit.
+export const MAX_MATERIAL_CHARS = 12000;
 
 // One plan is shared by every request until a new one is built. Concurrent requests await
 // the same promise, so a double click makes one model call.
@@ -80,9 +82,14 @@ export function createLessonsRouter({ store, chat, aiFor }) {
       // The reader writes user-facing messages for bad files (wrong type, scanned, too long).
       return res.status(400).json({ error: error.message });
     }
+    const text = document.segments.map(segment => segment.text).join('');
+    // The whole material goes to the model in one request, and Groq rejects requests this large (413).
+    if (text.length > MAX_MATERIAL_CHARS) {
+      return res.status(413).json({ error: `This file has ${text.length.toLocaleString('en-US')} characters. Use a file with at most ${MAX_MATERIAL_CHARS.toLocaleString('en-US')} characters (roughly 4 pages) for now. Nothing was cut.` });
+    }
     try {
       chat.reset();
-      const plan = await store.build({ ai: aiFor(req), text: document.segments.map(segment => segment.text).join(''), teacherPrompt: prompt.data });
+      const plan = await store.build({ ai: aiFor(req), text, teacherPrompt: prompt.data });
       if (plan.error) return res.status(422).json({ error: plan.error });
       res.json({ ...plan, fileName: document.name, warnings: document.warnings });
     } catch (error) {
