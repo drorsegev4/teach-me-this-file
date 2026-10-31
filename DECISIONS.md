@@ -9,6 +9,12 @@ Working draft. Reviewers read this file, so it must match what the code does. Up
 - **Upload limits.** 10 MB per file, at most 60 PDF pages, at most 20,000 words. Chosen to keep requests small and processing bounded.
 - **Scaffolding first, features second.** The client is a placeholder until the teacher flow exists, so each commit builds.
 - **One configuration.** Local and production use the same commands (`npm run build`, `npm start`) and the same names in `.env.example`. Node 22 is pinned in `.nvmrc`; line endings are LF via `.gitattributes`. The README is the single how-to. `render.yaml` holds the production settings for Option A below.
+- **Chat turns: check, then reply.** Each student answer is first checked against the step's source (understood, keep going, or off the material). The tutor's reply is then written knowing that result, so it never confirms a step it has not passed. The check returns JSON; the reply streams as text.
+- **Off-file questions are declined.** The tutor says the question is outside the material and returns to the current step. It does not answer, to keep teaching grounded in the file.
+- **Stop commits nothing.** The browser aborts the stream; the server cancels the model call and keeps progress and history unchanged. The student's message returns to the input box.
+- **Progress lives in server state, not in the chat history.** Completed steps and the current step are stored separately from messages.
+- **Mock mode (`AI_MODE=mock`).** Serves a saved plan and scripted replies, so the page can be built and tested without the provider. The real model is checked separately with `npm run plan:sample` and one live chat turn.
+
 ## Hosting (open: two options recorded)
 
 Both options satisfy the assignment's requirement for a live front end and back end. Neither is chosen yet.

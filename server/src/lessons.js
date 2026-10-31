@@ -8,28 +8,34 @@ import { generateLessonPlan, PlanError } from './lessonPlan.js';
 const sampleText = readFileSync(new URL('../fixtures/sample-document.txt', import.meta.url), 'utf8');
 const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 
+// One plan is shared by every request until a fresh one is asked for. Concurrent
+// requests await the same promise, so a double click makes one model call.
+export function createPlanStore({ ai }) {
+  let current = null;
+  return {
+    get({ fresh = false } = {}) {
+      if (fresh || !current) {
+        const attempt = generateLessonPlan({ ai, text: sampleText, teacherPrompt: sampleTeacherPrompt })
+          .then(plan => (plan.error ? { error: plan.error } : { rules: plan.rules, steps: plan.steps }));
+        // Failed or refused plans are not kept, so the next request tries again.
+        attempt.then(plan => { if (plan.error) current = null; }, () => { current = null; });
+        current = attempt;
+      }
+      return current;
+    },
+  };
+}
+
 const body = z.object({ fresh: z.boolean().optional() }).strict();
 
-export function createLessonsRouter({ ai }) {
+export function createLessonsRouter({ store }) {
   const router = Router();
-  // One plan is shared by every request until a fresh one is asked for. Concurrent
-  // requests await the same promise, so a double click makes one model call.
-  let current = null;
-
-  function build() {
-    const attempt = generateLessonPlan({ ai, text: sampleText, teacherPrompt: sampleTeacherPrompt })
-      .then(plan => (plan.error ? { error: plan.error } : { rules: plan.rules, steps: plan.steps }));
-    // Failed or refused plans are not kept, so the next request tries again.
-    attempt.then(plan => { if (plan.error) current = null; }, () => { current = null; });
-    return attempt;
-  }
 
   router.post('/', async (req, res) => {
     const parsed = body.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: 'Invalid lesson request.' });
-    if (parsed.data.fresh || !current) current = build();
     try {
-      const plan = await current;
+      const plan = await store.get({ fresh: parsed.data.fresh });
       if (plan.error) return res.status(422).json({ error: plan.error });
       res.json(plan);
     } catch (error) {
