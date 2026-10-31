@@ -54,6 +54,9 @@ Both options satisfy the assignment's requirement for a live front end and back 
 
 ## How I know it works
 
-- [TODO: test scenarios]
-- `npm run build` passes.
-- `npm test` runs no tests yet.
+- `npm test` (43 unit tests) and `npm run build` pass.
+- **check.md eval** (`npm run eval:check`): a 10-row golden dataset, labelled by a domain expert, run 3 times each against the real model. Results are saved with the prompt's commit.
+  - Baseline at `164b1f6`: 8/10. Re-scoring the same results under the new rule gives 9/10. The new `no_attempt` label, plus that rule change, gives 10/10 at `4680baf`. The rule change accounts for one row, and the prompt change for one row.
+  - Row 6 (a request to be told the answer is right) is now labelled `no_attempt`. It passes the rule, but the label is wrong for this message. It is open for the tutor eval.
+- Tutor behavior (`tutor.md`) is not evaluated yet. Its output is free text, so it needs rule checks and rubric review rather than exact matches.
+- `no_attempt` has no tutor branch yet. The chat treats it as `open`, which re-asks the opening question.
