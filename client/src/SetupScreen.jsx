@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { buildLesson } from './api.js';
 
 const MIN_PROMPT = 20;
@@ -27,7 +27,18 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
   const [dragging, setDragging] = useState(false);
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const input = useRef(null);
+
+  // The build is one request, so the server reports no real progress. These stage labels follow
+  // the elapsed time instead; they describe what happens, not a measured percentage.
+  useEffect(() => {
+    if (!building) return undefined;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => { clearInterval(timer); setElapsed(0); };
+  }, [building]);
+  const stage = elapsed < 4 ? 'Reading the file…' : elapsed < 12 ? 'Planning the steps…' : 'Checking every quote against the file…';
 
   const promptLength = prompt.trim().length;
   const reason = !file
@@ -113,7 +124,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
         {building && <span aria-hidden="true" className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent align-[-1px]" />}
         {building ? 'Building lesson…' : 'Build lesson'}
       </button>
-      {building && <p role="status" className="mt-2 text-center text-xs text-stone-600">Reading the file and checking every quote. This can take up to a minute.</p>}
+      {building && <p role="status" className="mt-2 text-center text-xs text-stone-600">{stage} This can take up to a minute.</p>}
     </form>
   </main>;
 }
