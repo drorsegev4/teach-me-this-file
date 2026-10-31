@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@layer base {
+  body { margin: 0; background: #faf9f6; color: #292524; font-family: ui-sans-serif, system-ui, sans-serif; }
+  button { cursor: pointer; }
+}
