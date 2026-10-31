@@ -3,7 +3,7 @@ services:
   - type: web
     name: teach-me-this-file
     runtime: node
-    branch: teacher-lesson-base
+    branch: main
     autoDeploy: false
     buildCommand: npm ci && npm run build
     startCommand: npm start
