@@ -13,6 +13,16 @@ export class ChatError extends Error {
 const stepId = index => `step-${index + 1}`;
 
 // Wrong answers (keep_going) per step. Each step starts at zero.
+// Which tutor.md branch the reply follows, for the dev log. Mirrors the prompt's bullets; it does not affect the reply.
+function tutorBranch(status, attempt) {
+  if (status !== 'keep_going') return status;
+  return attempt >= 3 ? 'keep_going/attempt 3+' : `keep_going/attempt ${attempt}`;
+}
+
+// Dev only: one line per turn with the status, the attempt passed to the tutor, and the branch used.
+// Student text is not logged.
+const debugTurns = process.env.DEV_TOOLS === '1' || process.env.NODE_ENV === 'development';
+
 function attemptCounts(attempts, steps) {
   return Object.fromEntries(steps.map((_, i) => [stepId(i), attempts[stepId(i)] ?? 0]));
 }
@@ -74,6 +84,9 @@ export function createChatService({ ai, store }) {
         rules: plan.rules, status: check.status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, attempt, onChunk, signal,
       });
       if (signal?.aborted) throw new ChatError('Stopped. Your message was not sent.', 499);
+      if (debugTurns) {
+        console.log(`[turn] type=${type} step=${stepId(base.index)} status=${check.status} attempt=${attempt} branch=${tutorBranch(check.status, attempt)}`);
+      }
 
       const tutor = {
         id: base.messages.length + (student ? 2 : 1), role: 'tutor', text: replyText, stepId: stepId(base.index), quote: step.source,
