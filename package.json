@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test": "node --test tests/unit/*.test.js",
     "test:live": "node --env-file-if-exists=.env tests/live/manual.js",
-    "plan:sample": "node --env-file-if-exists=.env tests/live/plan_sample.js"
+    "plan:sample": "node --env-file-if-exists=.env tests/live/plan_sample.js",
+    "eval:check": "node --env-file-if-exists=.env tests/evals/run-check.js"
   },
   "dependencies": {
     "express": "^5.1.0",

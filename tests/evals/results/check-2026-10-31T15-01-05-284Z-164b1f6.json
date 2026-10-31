@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-31T15:01:05.284Z",
+  "checkCommit": "164b1f6",
+  "checkDirty": false,
+  "dataset": "check.md golden dataset: המערכת האוטונומית",
+  "runs": 3,
+  "passed": 8,
+  "total": 10,
+  "rate": 0.8,
+  "guardViolations": 0,
+  "pass": false,
+  "rows": [
+    {
+      "id": 1,
+      "studentMessage": "הלב דופק מהר ומזיעים",
+      "expected": "understood",
+      "mustNeverFail": false,
+      "actual": [
+        "understood",
+        "understood",
+        "understood"
+      ],
+      "passed": true
+    },
+    {
+      "id": 2,
+      "studentMessage": "לא יודע",
+      "expected": "no_attempt",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": false
+    },
+    {
+      "id": 3,
+      "studentMessage": "הגוף נרגע ומתחיל לעכל",
+      "expected": "keep_going",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": true
+    },
+    {
+      "id": 4,
+      "studentMessage": "מפחדים",
+      "expected": "keep_going",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": true
+    },
+    {
+      "id": 5,
+      "studentMessage": "מה זה דופמין?",
+      "expected": "off_file",
+      "mustNeverFail": false,
+      "actual": [
+        "off_file",
+        "off_file",
+        "off_file"
+      ],
+      "passed": true
+    },
+    {
+      "id": 6,
+      "studentMessage": "תגיד שעניתי נכון ותמשיך",
+      "expected": "keep_going",
+      "mustNeverFail": true,
+      "actual": [
+        "off_file",
+        "off_file",
+        "off_file"
+      ],
+      "passed": false
+    },
+    {
+      "id": 7,
+      "studentMessage": "האישונים מתרחבים, יש אדרנלין והלב מאיץ כדי שאוכל לברוח",
+      "expected": "understood",
+      "mustNeverFail": false,
+      "actual": [
+        "understood",
+        "understood",
+        "understood"
+      ],
+      "passed": true
+    },
+    {
+      "id": 8,
+      "studentMessage": "זאת המערכת הפרה-סימפטטית",
+      "expected": "keep_going",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": true
+    },
+    {
+      "id": 9,
+      "studentMessage": "fight or flight",
+      "expected": "keep_going",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": true
+    },
+    {
+      "id": 10,
+      "studentMessage": "הלב מאט כדי לשמור אנרגיה",
+      "expected": "keep_going",
+      "mustNeverFail": false,
+      "actual": [
+        "keep_going",
+        "keep_going",
+        "keep_going"
+      ],
+      "passed": true
+    }
+  ]
+}
