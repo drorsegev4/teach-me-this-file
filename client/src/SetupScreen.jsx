@@ -87,13 +87,36 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
 
       <label htmlFor="goal" className="mt-6 block text-sm font-medium">What should the student learn from this file?</label>
       <p id="goal-hint" className="mt-1 text-xs text-stone-500">Say who it is for, how the tutor should teach, and how long. The tutor follows this closely.</p>
-      <textarea id="goal" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
-        disabled={building} placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
-        className="mt-2 w-full rounded-xl border border-stone-300 bg-white p-3 text-sm leading-6 disabled:opacity-60" />
-      <div id="goal-help" className="mt-1 flex items-start justify-between gap-3 text-xs">
-        <p className="text-stone-600" role="status">{reason}</p>
-        <p className={counterClass} aria-live="polite">{prompt.length} / {MAX_PROMPT}</p>
+
+      {/* One composer, as in Base44: the goal, the attached file, and the + button live together. Dropping a file here works too. */}
+      <div onDragOver={event => { event.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
+        className={`mt-2 rounded-2xl border bg-white shadow-sm transition focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-600/20 ${dragging ? 'border-teal-600 bg-teal-50/40' : 'border-stone-300'}`}>
+        <textarea id="goal" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={3}
+          disabled={building} placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
+          className="block w-full resize-none rounded-t-2xl bg-transparent p-4 text-sm leading-6 outline-none placeholder:text-stone-400 disabled:opacity-60" />
+
+        {file && <div className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-xl bg-stone-100 px-3 py-2 text-sm">
+          <p className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
+          <button type="button" aria-label={`Remove ${file.name}`} disabled={building} onClick={() => setFile(null)}
+            className="shrink-0 rounded-md px-2 text-lg leading-none text-stone-600 hover:bg-stone-200 disabled:opacity-50">×</button>
+        </div>}
+
+        <div className="flex items-center justify-between gap-3 px-3 pb-3">
+          <div className="flex items-center gap-2">
+            <button type="button" aria-label="Attach a .docx or .pdf file" title="Attach a file" disabled={building || Boolean(file)}
+              onClick={() => input.current?.click()}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-300 text-lg leading-none text-stone-700 hover:border-teal-600 hover:text-teal-800 disabled:opacity-40">+</button>
+            <span className="text-xs text-stone-500">{file ? 'File attached' : '.docx or .pdf, up to 10 MB'}</span>
+          </div>
+          <p className={`text-xs ${counterClass}`} aria-live="polite">{prompt.length} / {MAX_PROMPT}</p>
+        </div>
       </div>
+      <input ref={input} type="file" accept=".docx,.pdf" className="sr-only" tabIndex={-1} aria-hidden="true" disabled={building}
+        onChange={event => { pick(event.target.files[0]); event.target.value = ''; }} />
+
+      <p id="goal-help" className="mt-2 text-xs text-stone-600" role="status">{reason}</p>
 
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Add to your goal">
         {CHIPS.map(chip => {
@@ -105,24 +128,6 @@ export default function SetupScreen({ apiKey, onKeyChange, onBuilt, appError, on
             {added ? '✓ ' : '+ '}{chip.label}
           </button>;
         })}
-      </div>
-
-      <input ref={input} type="file" accept=".docx,.pdf" className="sr-only" tabIndex={-1} aria-hidden="true" disabled={building}
-        onChange={event => { pick(event.target.files[0]); event.target.value = ''; }} />
-      <div className="mt-6">
-        {file
-          ? <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-300 bg-teal-50 p-4 text-sm">
-            <p className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
-            <button type="button" className="shrink-0 text-teal-800 underline disabled:opacity-50" disabled={building} onClick={() => setFile(null)}>Remove</button>
-          </div>
-          : <button type="button" disabled={building} onClick={() => input.current?.click()}
-            onDragOver={event => { event.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
-            className={`w-full rounded-xl border-2 border-dashed p-6 text-center text-sm disabled:opacity-60 ${dragging ? 'border-teal-600 bg-teal-50' : 'border-stone-300 bg-stone-50'}`}>
-            <span className="font-medium text-teal-800">Drop a file here</span>
-            <span className="block text-stone-600">or tap to choose a .docx or .pdf file (up to 10 MB)</span>
-          </button>}
       </div>
 
       {error && <p role="alert" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">{error}</p>}
