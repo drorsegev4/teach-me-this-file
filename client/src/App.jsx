@@ -81,7 +81,7 @@ export default function App() {
     return <SetupScreen apiKey={apiKey} onKeyChange={setApiKey} onBuilt={startBuiltLesson} appError={error} onDismissAppError={() => setError('')} />;
   }
 
-  return <main className="mx-auto flex min-h-dvh max-w-md flex-col px-4 py-6">
+  return <main className="mx-auto flex min-h-dvh max-w-lg flex-col px-4 py-6">
     <header className="mb-4">
       <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Teach Me This File</p>
       <div className="mt-1 flex items-baseline justify-between gap-3">
