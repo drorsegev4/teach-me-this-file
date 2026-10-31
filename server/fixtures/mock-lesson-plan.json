@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "language": "English",
+    "audience": "7th graders",
+    "timeLimit": "15 minutes",
+    "method": "Socratic"
+  },
+  "steps": [
+    {
+      "title": "What is evaporation?",
+      "source": "Evaporation is the change of liquid water into water vapor, a gas, at the surface of the liquid.",
+      "dependsOnPrevious": false
+    },
+    {
+      "title": "Can water evaporate without boiling?",
+      "source": "Evaporation can happen below the boiling point; water does not have to boil to evaporate.",
+      "dependsOnPrevious": true
+    },
+    {
+      "title": "How does temperature affect evaporation speed?",
+      "source": "warmer water evaporates faster because its particles have more energy and more can escape from the surface into the air.",
+      "dependsOnPrevious": true
+    },
+    {
+      "title": "What role does surface area play?",
+      "source": "spreading the same amount of water over a larger exposed surface makes it evaporate faster.",
+      "dependsOnPrevious": true
+    },
+    {
+      "title": "How do real-world examples illustrate these ideas?",
+      "source": "a thin wet cloth spread out in a warm room usually dries faster than an equally wet cloth folded up in a cooler room",
+      "dependsOnPrevious": true
+    }
+  ],
+  "error": null
+}

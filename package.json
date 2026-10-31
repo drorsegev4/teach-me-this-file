@@ -13,7 +13,8 @@
     "start": "node --env-file-if-exists=.env server/src/index.js",
     "preview": "vite preview",
     "test": "node --test tests/unit/*.test.js",
-    "test:live": "node --env-file-if-exists=.env tests/live/manual.js"
+    "test:live": "node --env-file-if-exists=.env tests/live/manual.js",
+    "plan:sample": "node --env-file-if-exists=.env tests/live/plan_sample.js"
   },
   "dependencies": {
     "express": "^5.1.0",

@@ -2,7 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAI, ProviderError } from '../../server/src/ai.js';
 
-const plan = { assumptions: 'Grade 7', steps: [{ title: 'Hook', source: 'Evaporation is the change' }], error: null };
+const plan = {
+  rules: { language: 'English', audience: '7th grade', timeLimit: null, method: 'direct explanation' },
+  steps: [{ title: 'Hook', source: 'Evaporation is the change', dependsOnPrevious: false }],
+  error: null,
+};
 
 function fakeFetch(status, body) {
   const calls = [];
