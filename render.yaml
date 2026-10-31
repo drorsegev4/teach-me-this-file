@@ -3,6 +3,7 @@ services:
   - type: web
     name: teach-me-this-file
     runtime: node
+    plan: free
     branch: main
     autoDeploy: false
     buildCommand: npm ci && npm run build
