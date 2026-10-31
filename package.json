@@ -23,7 +23,7 @@
     "express": "^5.1.0",
     "mammoth": "^1.13.0",
     "multer": "^2.5.0",
-    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.296",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.0",

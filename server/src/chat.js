@@ -42,14 +42,16 @@ export function createChatService({ ai, store }) {
     session = null;
   }
 
-  async function turn({ type, text, fresh = false, onChunk = () => {}, signal }) {
+  async function turn({ type, text, fresh = false, ai: requestAI, onChunk = () => {}, signal }) {
+    // The reviewer's key arrives per request; the service-level AI is a fallback for tests and tools.
+    const model = requestAI ?? ai;
     if (busy) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
     if (type === 'message' && (!session || session.index >= session.plan.steps.length)) {
       throw new ChatError('Start a lesson first.', 409);
     }
     busy = true;
     try {
-      const plan = type === 'start' ? await store.get({ fresh }) : session.plan;
+      const plan = type === 'start' ? await store.get({ fresh, ai: model }) : session.plan;
       if (plan.error) throw new ChatError(plan.error, 422);
       // Work on copies; the session changes only at the end.
       const base = type === 'start'
@@ -61,14 +63,14 @@ export function createChatService({ ai, store }) {
         .map(({ role, text: body }) => ({ role, text: body }));
 
       const student = type === 'message' ? { id: base.messages.length + 1, role: 'student', text, stepId: stepId(base.index), quote: null } : null;
-      const check = type === 'message' ? await ai.classify({ rules: plan.rules, step, history, studentText: text }) : { status: 'open' };
+      const check = type === 'message' ? await model.classify({ rules: plan.rules, step, history, studentText: text }) : { status: 'open' };
 
       // Only a wrong answer moves the attempt ladder; the tutor gets this step's count.
       if (check.status === 'keep_going') base.attempts[stepId(base.index)] = (base.attempts[stepId(base.index)] ?? 0) + 1;
       const attempt = base.attempts[stepId(base.index)] ?? 0;
       const advanced = check.status === 'understood';
 
-      const replyText = await ai.replyStream({
+      const replyText = await model.replyStream({
         rules: plan.rules, status: check.status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, attempt, onChunk, signal,
       });
       if (signal?.aborted) throw new ChatError('Stopped. Your message was not sent.', 499);
@@ -98,7 +100,7 @@ const turnBody = z.discriminatedUnion('type', [
 
 // Replies stream as server-sent events: "chunk" while the tutor writes, then "done" with the
 // full state, or "error". Closing the connection (Stop) aborts the reply and commits nothing.
-export function createChatRouter({ chat }) {
+export function createChatRouter({ chat, aiFor }) {
   const router = Router();
 
   router.get('/', (_req, res) => {
@@ -122,6 +124,7 @@ export function createChatRouter({ chat }) {
     try {
       const state = await chat.turn({
         ...parsed.data,
+        ai: aiFor(req),
         onChunk: text => send('chunk', { text }),
         signal: controller.signal,
       });

@@ -6,7 +6,7 @@ Upload a file and write a teaching prompt; the app builds an interactive lesson 
 
 - **Client:** React, Vite, Tailwind CSS (JavaScript).
 - **Server:** Node.js 22, Express 5.
-- **Files:** PDF and DOCX text extraction (`pdf-parse`, `mammoth`), run in a worker thread.
+- **Files:** PDF and DOCX text extraction (`pdfjs-dist`, `mammoth`), run in a worker thread.
 - **AI provider:** Groq (not yet wired; see `DECISIONS.md`).
 - **Production host:** Render, configured in `render.yaml`.
 

@@ -7,6 +7,7 @@ import { createDevRouter, devToolsEnabled } from './devTools.js';
 import { createLessonsRouter, createPlanStore } from './lessons.js';
 
 const clientDist = fileURLToPath(new URL('../../dist/', import.meta.url));
+export const KEY_HEADER = 'X-Groq-Api-Key';
 
 // AI_MODE=mock serves a saved plan and scripted replies instead of calling the provider (for UI work offline).
 function defaultAI() {
@@ -16,17 +17,32 @@ function defaultAI() {
   return createAI({ apiKey: process.env.GROQ_API_KEY });
 }
 
-export function createApp({ ai = defaultAI(), devTools = devToolsEnabled() } = {}) {
+// The reviewer's key travels in a header for one request. It is used for that call only and is
+// never stored or logged. Without it, the host's GROQ_API_KEY is used.
+function reviewerKey(req) {
+  return req.get(KEY_HEADER)?.trim() || process.env.GROQ_API_KEY;
+}
+
+export function createApp({ ai: injectedAI, devTools = devToolsEnabled() } = {}) {
   const app = express();
-  const store = createPlanStore({ ai });
-  const chat = createChatService({ ai, store });
+  const fallbackAI = injectedAI ?? defaultAI();
+  const aiFor = req => injectedAI ?? (process.env.AI_MODE === 'mock' ? fallbackAI : createAI({ apiKey: reviewerKey(req) }));
+  const store = createPlanStore();
+  const chat = createChatService({ store });
   app.disable('x-powered-by');
   // Dev tools go first: they take larger bodies (material text) and are absent unless enabled.
-  if (devTools) app.use('/api/dev', express.json({ limit: '1mb' }), createDevRouter({ ai }));
+  if (devTools) app.use('/api/dev', express.json({ limit: '1mb' }), createDevRouter({ ai: fallbackAI }));
+  app.use('/api', (req, res, next) => {
+    const key = req.get(KEY_HEADER);
+    if (key && (key.trim().length > 200 || /\s/.test(key.trim()))) {
+      return res.status(400).json({ error: 'That API key does not look valid. Check it in Settings and try again.' });
+    }
+    next();
+  });
   app.use(express.json({ limit: '16kb' }));
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
-  app.use('/api/lessons', createLessonsRouter({ store }));
-  app.use('/api/chat', createChatRouter({ chat }));
+  app.use('/api/lessons', createLessonsRouter({ store, chat, aiFor }));
+  app.use('/api/chat', createChatRouter({ chat, aiFor }));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));
   // Production: serve the built client from the same origin. In development Vite serves it instead.
   if (existsSync(clientDist)) {
