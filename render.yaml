@@ -1,0 +1,15 @@
+# Production host configuration (Render Blueprint). Local settings live in .env.example and README.md.
+services:
+  - type: web
+    name: teach-me-this-file
+    runtime: node
+    branch: teacher-lesson-base
+    autoDeploy: false
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: GROQ_API_KEY
+        sync: false

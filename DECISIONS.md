@@ -8,6 +8,8 @@ Working draft. Reviewers read this file, so it must match what the code does. Up
 - **PDF and DOCX text extraction on a worker thread.** Extraction runs off the request thread with a 30-second timeout and a 128 MB memory limit, so a bad file cannot block the server. Only text is read. Images, diagrams, formulas and table layout are not interpreted, and the user is warned.
 - **Upload limits.** 10 MB per file, at most 60 PDF pages, at most 20,000 words. Chosen to keep requests small and processing bounded.
 - **Scaffolding first, features second.** The client is a placeholder until the teacher flow exists, so each commit builds.
+- **One configuration.** Local and production use the same commands (`npm run build`, `npm start`) and the same names in `.env.example`. Node 22 is pinned in `.nvmrc`; line endings are LF via `.gitattributes`. The README is the single how-to; `render.yaml` holds the production settings.
+- **Hosting on Render, one web service.** The Express server serves the built client and the API from one process, so there is no cross-origin setup. Auto-deploy is off, so a public preview is deployed only on purpose, which protects the AI key from spend by others.
 
 ## Not decided yet
 
