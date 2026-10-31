@@ -46,7 +46,7 @@ function sendFailure(res, error) {
   if (error instanceof ChatError) return res.status(error.status).json({ error: error.message });
   if (error instanceof PlanError) return res.status(502).json({ error: 'The lesson plan did not pass the source check. Try again.' });
   if (error instanceof ProviderError) return res.status(502).json({ error: error.message });
-  console.error('[lessons] unexpected failure:', error.name);
+  console.error('[lessons] unexpected failure:', error.name, error.message);
   return res.status(500).json({ error: 'Could not build the lesson. Try again.' });
 }
 

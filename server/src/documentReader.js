@@ -46,13 +46,18 @@ export async function readDocument({ extension, buffer }) {
   return { segments, warnings };
 }
 
-process.once('message', async ({ extension, buffer }) => {
+// The file arrives on stdin and the JSON result leaves on stdout. Plain pipes, not IPC: with
+// `node --watch` the IPC channel also carries the watcher's messages, which corrupted results.
+const chunks = [];
+process.stdin.on('data', chunk => chunks.push(chunk));
+process.stdin.on('end', async () => {
+  const extension = process.argv[2];
   let reply;
   try {
-    reply = await readDocument({ extension, buffer: Buffer.from(buffer) });
+    reply = await readDocument({ extension, buffer: Buffer.concat(chunks) });
   } catch (error) {
     const safe = /^(Use a |No readable text|This file is not)/.test(error.message);
     reply = { error: safe ? error.message : 'Could not read this document. It may be damaged, password-protected, or unsupported. Try a readable PDF or DOCX.' };
   }
-  process.send(reply, () => process.exit(0));
+  process.stdout.end(JSON.stringify(reply));
 });
