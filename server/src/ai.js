@@ -57,8 +57,8 @@ export function createMockAI(planResponses, { delayMs = 30 } = {}) {
       if (/weather/i.test(studentText)) return { status: 'off_file' };
       return { status: studentText.trim().split(/\s+/).length >= 3 ? 'understood' : 'keep_going' };
     },
-    async replyStream({ status, step, nextStep, onChunk, signal }) {
-      const text = mockReply(status, step, nextStep);
+    async replyStream({ status, step, nextStep, attempt, onChunk, signal }) {
+      const text = mockReply(status, step, nextStep, attempt);
       let full = '';
       for (const word of text.split(' ')) {
         await pause(delayMs, signal);
@@ -71,9 +71,11 @@ export function createMockAI(planResponses, { delayMs = 30 } = {}) {
   };
 }
 
-function mockReply(status, step, nextStep) {
+function mockReply(status, step, nextStep, attempt) {
   if (status === 'open') return `Let's begin. ${step.title} Think about what the passage says.`;
-  if (status === 'keep_going') return `Not quite yet. Look at the passage again: which part helps answer "${step.title}"?`;
+  if (status === 'keep_going') return `Not quite yet (attempt ${attempt}). Look at the passage again: which part helps answer "${step.title}"?`;
+  if (status === 'no_attempt') return `That is fine. Let's try a smaller question about "${step.title}".`;
+  if (status === 'off_file') return `That is outside this material, so I cannot answer it here. Back to our step: ${step.title}`;
   return nextStep ? `Yes, that is the idea. Next: ${nextStep.title}` : 'Yes, that is the idea. You finished the lesson.';
 }
 

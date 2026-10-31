@@ -3,9 +3,6 @@ import { z } from 'zod';
 import { ProviderError } from './ai.js';
 import { PlanError } from './lessonPlan.js';
 
-// Off-file questions are not answered: the tutor says so and returns to the step.
-const offFileReply = step => `That is outside this material, so I cannot answer it here. Back to our step: ${step.title}`;
-
 export class ChatError extends Error {
   constructor(message, status) {
     super(message);
@@ -15,11 +12,9 @@ export class ChatError extends Error {
 
 const stepId = index => `step-${index + 1}`;
 
-// Student answers given on each step so far.
-function attemptsPerStep(messages, steps) {
-  return Object.fromEntries(steps.map((_, i) => [
-    stepId(i), messages.filter(message => message.role === 'student' && message.stepId === stepId(i)).length,
-  ]));
+// Wrong answers (keep_going) per step. Each step starts at zero.
+function attemptCounts(attempts, steps) {
+  return Object.fromEntries(steps.map((_, i) => [stepId(i), attempts[stepId(i)] ?? 0]));
 }
 
 // One lesson session in memory. A turn commits only after the tutor's full reply is ready, so a
@@ -36,7 +31,7 @@ export function createChatService({ ai, store }) {
       steps: plan.steps.map((step, i) => ({ id: stepId(i), title: step.title })),
       currentStepId: index < plan.steps.length ? stepId(index) : null,
       completedStepIds: completed,
-      attemptsPerStep: attemptsPerStep(messages, plan.steps),
+      attemptsPerStep: attemptCounts(session.attempts, plan.steps),
       lessonComplete: index >= plan.steps.length,
       messages,
     };
@@ -58,8 +53,8 @@ export function createChatService({ ai, store }) {
       if (plan.error) throw new ChatError(plan.error, 422);
       // Work on copies; the session changes only at the end.
       const base = type === 'start'
-        ? { plan, index: 0, completed: [], messages: [] }
-        : { ...session, completed: [...session.completed], messages: [...session.messages] };
+        ? { plan, index: 0, completed: [], messages: [], attempts: {} }
+        : { ...session, completed: [...session.completed], messages: [...session.messages], attempts: { ...session.attempts } };
       const step = plan.steps[base.index];
       const nextStep = plan.steps[base.index + 1] ?? null;
       const history = base.messages.filter(message => message.stepId === stepId(base.index))
@@ -68,19 +63,14 @@ export function createChatService({ ai, store }) {
       const student = type === 'message' ? { id: base.messages.length + 1, role: 'student', text, stepId: stepId(base.index), quote: null } : null;
       const check = type === 'message' ? await ai.classify({ rules: plan.rules, step, history, studentText: text }) : { status: 'open' };
 
-      const attempt = base.messages.filter(message => message.role === 'student' && message.stepId === stepId(base.index)).length + (student ? 1 : 0);
-      let replyText;
-      let advanced = false;
-      if (check.status === 'off_file') {
-        replyText = offFileReply(step);
-        onChunk(replyText);
-      } else {
-        const status = check.status === 'understood' ? 'understood' : check.status === 'keep_going' ? 'keep_going' : 'open';
-        advanced = status === 'understood';
-        replyText = await ai.replyStream({
-          rules: plan.rules, status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, attempt, onChunk, signal,
-        });
-      }
+      // Only a wrong answer moves the attempt ladder; the tutor gets this step's count.
+      if (check.status === 'keep_going') base.attempts[stepId(base.index)] = (base.attempts[stepId(base.index)] ?? 0) + 1;
+      const attempt = base.attempts[stepId(base.index)] ?? 0;
+      const advanced = check.status === 'understood';
+
+      const replyText = await ai.replyStream({
+        rules: plan.rules, status: check.status, step, nextStep: advanced ? nextStep : null, studentText: text ?? null, history, attempt, onChunk, signal,
+      });
       if (signal?.aborted) throw new ChatError('Stopped. Your message was not sent.', 499);
 
       const tutor = {

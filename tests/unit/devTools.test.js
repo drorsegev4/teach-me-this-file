@@ -56,7 +56,7 @@ test('builds a plan, runs the simulator, saves a test case, and replays it', asy
     await call(base, 'POST', '/chat', { type: 'start' });
     const answered = await call(base, 'POST', '/chat', { type: 'message', text: 'Water turns into vapor at the surface' });
     assert.deepEqual(answered.data.completedStepIds, ['step-1']);
-    assert.equal(answered.data.attemptsPerStep['step-1'], 1);
+    assert.equal(answered.data.attemptsPerStep['step-1'], 0);
 
     const saved = await call(base, 'POST', '/scenarios', { name: 'Right answer advances', expected: 'Moves to step 2' });
     assert.equal(saved.status, 201);

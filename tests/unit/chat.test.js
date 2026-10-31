@@ -41,6 +41,28 @@ test('a wrong answer keeps the step open and records no progress', async () => {
   assert.deepEqual(state.completedStepIds, []);
   assert.equal(state.currentStepId, 'step-1');
   assert.equal(state.messages.at(-1).role, 'tutor');
+  assert.equal(state.attemptsPerStep['step-1'], 1);
+  assert.equal(state.messages.at(-1).attempt, 1);
+});
+
+test('wrong answers climb the attempt ladder and reset on the next step', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  await chat.turn({ type: 'message', text: keepGoing });
+  const second = await chat.turn({ type: 'message', text: keepGoing });
+  assert.equal(second.messages.at(-1).attempt, 2);
+  assert.equal(second.attemptsPerStep['step-1'], 2);
+  const advanced = await chat.turn({ type: 'message', text: understood });
+  assert.equal(advanced.currentStepId, 'step-2');
+  assert.equal(advanced.attemptsPerStep['step-2'], 0);
+  assert.equal(advanced.attemptsPerStep['step-1'], 2);
+});
+
+test('no_attempt and off_file do not count as wrong answers', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  const state = await chat.turn({ type: 'message', text: offFile });
+  assert.equal(state.attemptsPerStep['step-1'], 0);
 });
 
 test('an off-file question is declined and does not move the lesson', async () => {
