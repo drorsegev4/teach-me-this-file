@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     branch: main
-    autoDeploy: false
+    autoDeploy: true
     buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
