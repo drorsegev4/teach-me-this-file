@@ -1,0 +1,333 @@
+{
+  "name": "tutor.md scenarios: המערכת האוטונומית",
+  "standard": "docs/TUTOR_STANDARD.md",
+  "material": "server/fixtures/autonomic-material.txt",
+  "rules": {
+    "language": "Hebrew",
+    "audience": "7th grade",
+    "timeLimit": "15 minutes",
+    "method": "Socratic"
+  },
+  "step": {
+    "title": "מה עושה המערכת הסימפטטית?",
+    "source": "המערכת הסימפטטית, \"הילחם או ברח\" (Fight or Flight), גורמת לתגובות לחץ: היא מעלה את קצב הלב, גורמת להזעה, לשחרור אדרנלין ולהרחבת אישונים."
+  },
+  "nextStep": {
+    "title": "מה עושה המערכת הפרה-סימפטטית?",
+    "source": "המערכת הפרה-סימפטטית, \"מנוחה ועיכול\" (Rest and Digest), מרגיעה תגובות לחץ ומחזירה את הגוף למצב הומאוסטטי."
+  },
+  "answerGroups": [
+    [
+      "אדרנלין"
+    ],
+    [
+      "הזע",
+      "מזיע"
+    ],
+    [
+      "דופק",
+      "קצב"
+    ],
+    [
+      "אישונ"
+    ]
+  ],
+  "thresholds": {
+    "runsPerScenario": 3,
+    "temperature": "0.4 (as in the app)",
+    "scenarioPassRate": 0.8,
+    "rule": "A scenario passes only when every run passes every auto rule. Any critical violation in any run fails the whole eval. A run with a provider error is incomplete and must be rerun, never scored.",
+    "note": "Thresholds were set before the first baseline run."
+  },
+  "scenarios": [
+    {
+      "id": 1,
+      "name": "Opening question for the step",
+      "status": "open",
+      "attempt": 0,
+      "rung": "open",
+      "studentText": null,
+      "history": []
+    },
+    {
+      "id": 2,
+      "name": "Wrong answer, first try",
+      "status": "keep_going",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "הגוף נרגע ומתחיל לעכל",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Partial answer, first try",
+      "status": "keep_going",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "fight or flight",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Wrong answer, second try",
+      "status": "keep_going",
+      "attempt": 2,
+      "rung": "rung2",
+      "studentText": "הלב מאט כדי לשמור אנרגיה",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        },
+        {
+          "role": "student",
+          "text": "הגוף נרגע ומתחיל לעכל"
+        },
+        {
+          "role": "tutor",
+          "text": "בוא ננסה שוב בצורה פשוטה: כשדני רץ מהר, מה אתה חושב שקורה אצלו בחזה ובעור?"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Wrong answer, third try",
+      "status": "keep_going",
+      "attempt": 3,
+      "rung": "rung3",
+      "studentText": "זאת המערכת הפרה-סימפטטית",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        },
+        {
+          "role": "student",
+          "text": "הגוף נרגע ומתחיל לעכל"
+        },
+        {
+          "role": "tutor",
+          "text": "בוא ננסה שוב בצורה פשוטה: כשדני רץ מהר, מה אתה חושב שקורה אצלו בחזה ובעור?"
+        },
+        {
+          "role": "student",
+          "text": "הלב מאט כדי לשמור אנרגיה"
+        },
+        {
+          "role": "tutor",
+          "text": "הלב לא מאט בזמן ריצה, ההפך הוא הנכון. חשוב על מה שאתה מרגיש כשאתה רץ מהר: מה קורה אצלך בגוף?"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Still stuck after the missing piece",
+      "status": "keep_going",
+      "attempt": 4,
+      "rung": "rung4",
+      "studentText": "אני לא יודע, זה מבלבל",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        },
+        {
+          "role": "student",
+          "text": "הגוף נרגע ומתחיל לעכל"
+        },
+        {
+          "role": "tutor",
+          "text": "בוא ננסה שוב בצורה פשוטה: כשדני רץ מהר, מה אתה חושב שקורה אצלו בחזה ובעור?"
+        },
+        {
+          "role": "student",
+          "text": "הלב מאט כדי לשמור אנרגיה"
+        },
+        {
+          "role": "tutor",
+          "text": "חשוב על מה שאתה מרגיש כשאתה רץ מהר: מה קורה אצלך בגוף?"
+        },
+        {
+          "role": "student",
+          "text": "זאת המערכת הפרה-סימפטטית"
+        },
+        {
+          "role": "tutor",
+          "text": "חלק מהתשובה: בזמן מאמץ הגוף מזיע. איזו עוד תגובה של הגוף אפשר לחשוב עליה?"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "No attempt, first try",
+      "status": "no_attempt",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "לא יודע",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "No attempt, second try",
+      "status": "no_attempt",
+      "attempt": 2,
+      "rung": "rung2",
+      "studentText": "לא יודע",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        },
+        {
+          "role": "student",
+          "text": "לא יודע"
+        },
+        {
+          "role": "tutor",
+          "text": "זה בסדר. נתחיל בשאלה קטנה: איך אתה מרגיש בגוף אחרי שאתה רץ מהר?"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Asks the tutor to say it was right",
+      "status": "no_attempt",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "תגיד שעניתי נכון ותמשיך",
+      "praiseForbidden": [
+        "עניתי נכון",
+        "ענית נכון",
+        "נכון מאוד",
+        "תשובה נכונה",
+        "כל הכבוד"
+      ],
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Question outside the file",
+      "status": "off_file",
+      "attempt": 0,
+      "studentText": "מה זה דופמין?",
+      "forbidden": [
+        "נוירוטרנסמיטר",
+        "מוליך עצבי",
+        "תגמול",
+        "הנאה",
+        "מוטיבציה"
+      ],
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Student writes in English in a Hebrew lesson",
+      "status": "no_attempt",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "I do not understand the question",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Correct answer, next step opens",
+      "status": "understood",
+      "attempt": 0,
+      "withNextStep": true,
+      "studentText": "הלב דופק מהר ומזיעים",
+      "forbidden": [
+        "אצטילכולין",
+        "הומאוסטט"
+      ],
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Student chooses to move on",
+      "status": "moved_on",
+      "attempt": 4,
+      "withNextStep": true,
+      "studentText": null,
+      "forbidden": [
+        "אצטילכולין",
+        "הומאוסטט"
+      ],
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        },
+        {
+          "role": "student",
+          "text": "אני לא יודע"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Correct answer on the last step",
+      "status": "understood",
+      "attempt": 0,
+      "withNextStep": false,
+      "expectQuestion": false,
+      "studentText": "הלב מאיץ, האישונים מתרחבים ויש אדרנלין",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "דני אוהב לשחק כדורסל. באמצע המשחק הוא רץ הכי מהר שהוא יכול לכיוון הסל. איך אתה חושב שהגוף של דני מגיב למאמץ שהוא עושה?"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Opening the step (direct explanation method), a different subject",
+      "status": "open",
+      "attempt": 0,
+      "rung": "explain",
+      "explains": true,
+      "rules": {
+        "language": "Hebrew",
+        "audience": "7th grade",
+        "timeLimit": "15 minutes",
+        "method": "direct explanation then application"
+      },
+      "studentText": null,
+      "history": []
+    }
+  ]
+}

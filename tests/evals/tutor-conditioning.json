@@ -1,0 +1,51 @@
+{
+  "name": "tutor.md scenarios: התניה קלאסית (explaining through examples)",
+  "standard": "docs/TUTOR_STANDARD.md",
+  "material": "server/fixtures/conditioning-material.txt",
+  "rules": {
+    "language": "Hebrew",
+    "audience": "10th grade",
+    "timeLimit": null,
+    "method": "direct explanation then application"
+  },
+  "step": {
+    "title": "מה זו התניה קלאסית?",
+    "source": "לומדים לקשר בין שני גירויים באופן שיעזור לנו לנבא התרחשות של אירוע בעתיד."
+  },
+  "nextStep": {
+    "title": "איך ההתניה נוצרת?",
+    "source": "לאחר חשיפה חוזרת ונשנית לשני גירויים שמתרחשים ברצף אנו מקשרים בין שני גירויים אלו."
+  },
+  "answerGroups": [["לקשר", "מקשר", "קישור", "חיבור"], ["גירוי"], ["לנבא", "לחזות", "צפוי"]],
+  "thresholds": {
+    "runsPerScenario": 3,
+    "scenarioPassRate": 0.8,
+    "rule": "Same as the autonomic dataset. The human items R9h and R9i decide whether the explanation is good; the auto rules only catch copying and the basics.",
+    "note": "Added 1 Nov 2026 to check that the tutor explains through an example that fits the subject, not only for conditioning."
+  },
+  "scenarios": [
+    {
+      "id": 1, "name": "Opening the step (direct explanation method)",
+      "status": "open", "attempt": 0, "rung": "explain", "explains": true, "studentText": null, "history": []
+    },
+    {
+      "id": 2, "name": "Student asks to be explained (Socratic lesson)",
+      "status": "no_attempt", "attempt": 1, "rung": "explain", "explains": true,
+      "rules": { "language": "Hebrew", "audience": "10th grade", "timeLimit": null, "method": "Socratic" },
+      "studentText": "תסביר לי מה זה בכלל התניה קלאסית",
+      "history": [{ "role": "tutor", "text": "(שאלת הפתיחה של השלב)" }]
+    },
+    {
+      "id": 3, "name": "Third try after two wrong answers",
+      "status": "keep_going", "attempt": 3, "rung": "rung3", "explains": true,
+      "studentText": "זה כשמענישים מישהו על משהו שהוא עשה",
+      "history": [
+        { "role": "tutor", "text": "(שאלת הפתיחה של השלב)" },
+        { "role": "student", "text": "כשלומדים משהו חדש" },
+        { "role": "tutor", "text": "קרוב, אבל חשוב על שני דברים שקורים ברצף. מה קורה כשאתה שומע צלצול פעמון בבית הספר?" },
+        { "role": "student", "text": "זה כשמענישים מישהו על משהו שהוא עשה" },
+        { "role": "tutor", "text": "ההתניה הזו עוסקת בחיבור בין שני גירויים, לא בעונש. מה קורה לך כשאתה שומע את הצלצול בסוף השיעור?" }
+      ]
+    }
+  ]
+}
