@@ -10,3 +10,7 @@ dist/
 .env.*
 !.env.example
 tests/live/results/
+
+# Local notes and eval output not meant for the repo
+docs/parked/
+tests/evals/results/tutor-*
