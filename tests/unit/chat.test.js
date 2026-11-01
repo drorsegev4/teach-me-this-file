@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createApp } from '../../server/src/app.js';
 import { createMockAI } from '../../server/src/ai.js';
 import { createChatService, ChatError } from '../../server/src/chat.js';
-import { createPlanStore } from '../../server/src/lessons.js';
+import { buildDraft } from './helpers/draft.js';
 
 const plan = JSON.parse(readFileSync(new URL('../../server/fixtures/mock-lesson-plan.json', import.meta.url), 'utf8'));
 const understood = 'Water turns into vapor at the surface of the liquid';
@@ -13,7 +13,9 @@ const offFile = 'What is the weather like today?';
 
 function service({ delayMs = 0 } = {}) {
   const ai = createMockAI(plan, { delayMs });
-  return { ai, chat: createChatService({ ai, store: createPlanStore({ ai }) }) };
+  // The teacher's draft is already built: chat tests start a lesson from it.
+  const store = { getDraft: async () => ({ rules: plan.rules, steps: plan.steps }) };
+  return { ai, chat: createChatService({ ai, store }) };
 }
 
 const noAttempt = "I don't know";
@@ -167,6 +169,7 @@ test('streams chunks and ends with the full state over HTTP', async () => {
   await new Promise(resolve => server.once('listening', resolve));
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
+    await buildDraft(base);
     const response = await fetch(`${base}/api/chat/turn`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'start' }),
     });
@@ -198,9 +201,11 @@ test('stopping a reply over HTTP aborts it and leaves the lesson state unchanged
   const ai = createMockAI(plan, { delayMs: 40 });
   const server = createApp({ ai }).listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
-  const base = `http://127.0.0.1:${server.address().port}/api/chat`;
+  const root = `http://127.0.0.1:${server.address().port}`;
+  const base = `${root}/api/chat`;
   const post = (body, signal) => fetch(`${base}/turn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
   try {
+    await buildDraft(root);
     await (await post({ type: 'start' })).text();
     await (await post({ type: 'message', text: keepGoing })).text();
     const before = await (await fetch(base)).json();

@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import multer from 'multer';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -10,9 +9,6 @@ import { generateLessonPlan, PlanError } from './lessonPlan.js';
 import { DEFAULT_TOKEN_BUDGET, prepareMaterial } from './material.js';
 import { DEFAULT_KEY, remember, sessionKey } from './session.js';
 
-// The hardcoded sample for this stage; the upload screen replaces these later.
-export const sampleText = readFileSync(new URL('../fixtures/sample-document.txt', import.meta.url), 'utf8');
-export const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 export const MIN_PROMPT_CHARS = 20;
 // The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
 export const MAX_PROMPT_CHARS = 1500;
@@ -41,10 +37,9 @@ export function createPlanStore({ ai: defaultAI } = {}) {
   }
 
   return {
-    get({ key = DEFAULT_KEY, fresh = false, ai = defaultAI } = {}) {
-      const entry = drafts.get(key);
-      if (fresh || !entry) return generate(key, ai, { text: sampleText, teacherPrompt: sampleTeacherPrompt });
-      return entry.attempt;
+    // The session's current draft plan, or null when nothing has been built.
+    getDraft(key = DEFAULT_KEY) {
+      return drafts.get(key)?.attempt ?? null;
     },
     build({ key = DEFAULT_KEY, ai = defaultAI, text, teacherPrompt }) {
       return generate(key, ai, { text, teacherPrompt });
@@ -66,7 +61,6 @@ export function createPlanStore({ ai: defaultAI } = {}) {
   };
 }
 
-const body = z.object({ fresh: z.boolean().optional() }).strict();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 4 } });
 const buildPrompt = z.string().trim().min(MIN_PROMPT_CHARS).max(MAX_PROMPT_CHARS);
 
@@ -80,18 +74,6 @@ function sendFailure(res, error) {
 
 export function createLessonsRouter({ store, chat, aiFor }) {
   const router = Router();
-
-  router.post('/', async (req, res) => {
-    const parsed = body.safeParse(req.body ?? {});
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid lesson request.' });
-    try {
-      const plan = await store.get({ key: sessionKey(req), fresh: parsed.data.fresh, ai: aiFor(req) });
-      if (plan.error) return res.status(422).json({ error: plan.error });
-      res.json(plan);
-    } catch (error) {
-      sendFailure(res, error);
-    }
-  });
 
   // Teacher upload: one PDF or DOCX plus the teacher's prompt becomes the lesson the chat teaches.
   router.post('/build', (req, res, next) => upload.single('file')(req, res, error => {

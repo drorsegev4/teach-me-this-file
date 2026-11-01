@@ -102,7 +102,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
       setFileName(built.fileName ?? '');
       setMaterial(built.material ?? null);
       setBuilding(false);
-      run({ type: 'start', fresh: false });
+      run({ type: 'start' });
     } catch (failure) {
       setBuildError(failure.message);
       setBuilding(false);
@@ -139,7 +139,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setChat(null);
     setStoppedReply('');
     setOpenSource(null);
-    run(lessonId ? { type: 'start', lessonId } : { type: 'start', fresh: false });
+    run(lessonId ? { type: 'start', lessonId } : { type: 'start' });
   }
 
   function newLesson() {

@@ -67,14 +67,18 @@ export function createChatService({ ai, store }) {
   }
 
   // A student starts on a published plan; a teacher's preview starts on their own draft.
-  async function startingPlan({ key, lessonId, fresh, model }) {
-    if (!lessonId) return store.get({ key, fresh, ai: model });
+  async function startingPlan({ key, lessonId }) {
+    if (!lessonId) {
+      const draft = await store.getDraft(key);
+      if (!draft) throw new ChatError('Build a lesson first.', 409);
+      return draft;
+    }
     const plan = store.getPublished(lessonId);
     if (!plan) throw new ChatError('This lesson link is not available. Ask your teacher for a new link.', 404);
     return plan;
   }
 
-  async function turn({ key = DEFAULT_KEY, lessonId, type, text, fresh = false, ai: requestAI, onChunk = () => {}, signal }) {
+  async function turn({ key = DEFAULT_KEY, lessonId, type, text, ai: requestAI, onChunk = () => {}, signal }) {
     // The reviewer's key arrives per request; the service-level AI is a fallback for tests and tools.
     const model = requestAI ?? ai;
     if (busyKeys.has(key)) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
@@ -87,7 +91,7 @@ export function createChatService({ ai, store }) {
     }
     busyKeys.add(key);
     try {
-      const plan = type === 'start' ? await startingPlan({ key, lessonId, fresh, model }) : session.plan;
+      const plan = type === 'start' ? await startingPlan({ key, lessonId }) : session.plan;
       if (plan.error) throw new ChatError(plan.error, 422);
       // Work on copies; the session changes only at the end.
       const base = type === 'start'
@@ -157,7 +161,7 @@ export function createChatService({ ai, store }) {
 }
 
 const turnBody = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('start'), fresh: z.boolean().optional(), lessonId: z.string().regex(/^[\w-]{4,32}$/).optional() }).strict(),
+  z.object({ type: z.literal('start'), lessonId: z.string().regex(/^[\w-]{4,32}$/).optional() }).strict(),
   z.object({ type: z.literal('message'), text: z.string().trim().min(1).max(2000) }).strict(),
   z.object({ type: z.literal('move_on') }).strict(),
 ]);

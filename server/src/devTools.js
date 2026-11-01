@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { ChatError, createChatService } from './chat.js';
 import { PROMPT_NAMES, ProviderError, readPrompt, writePrompt } from './ai.js';
 import { generateLessonPlan, PlanError } from './lessonPlan.js';
-import { sampleText, sampleTeacherPrompt } from './lessons.js';
+import { sampleText, sampleTeacherPrompt } from './sample.js';
 
 export const devToolsEnabled = () => process.env.NODE_ENV === 'development' || process.env.DEV_TOOLS === '1';
 
@@ -66,7 +66,7 @@ export function createDevRouter({ ai, directory = scenariosDirectory }) {
       const checked = { rules: plan.rules, steps: plan.steps };
       current = {
         material, teacherPrompt, plan: checked,
-        chat: createChatService({ ai, store: { get: async () => checked } }),
+        chat: createChatService({ ai, store: { getDraft: async () => checked } }),
       };
       res.json({ ...checked, attempts: plan.attempts.map(attempt => ({ problem: attempt.problem, raw: attempt.raw })) });
     } catch (error) {
@@ -161,7 +161,7 @@ export function createDevRouter({ ai, directory = scenariosDirectory }) {
   router.post('/scenarios/:id/replay', async (req, res) => {
     const scenario = readScenario(req.params.id);
     if (!scenario) return res.status(404).json({ error: 'Scenario not found.' });
-    const chat = createChatService({ ai, store: { get: async () => scenario.plan } });
+    const chat = createChatService({ ai, store: { getDraft: async () => scenario.plan } });
     let error = null;
     try {
       await chat.turn({ type: 'start' });

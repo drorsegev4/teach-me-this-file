@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { createApp } from '../../server/src/app.js';
 import { createMockAI } from '../../server/src/ai.js';
 import { createChatService } from '../../server/src/chat.js';
-import { createPlanStore, sampleText } from '../../server/src/lessons.js';
+import { createPlanStore } from '../../server/src/lessons.js';
+import { sampleText } from '../../server/src/sample.js';
+import { buildDraft } from './helpers/draft.js';
 import { remember } from '../../server/src/session.js';
 
 const plan = JSON.parse(readFileSync(new URL('../../server/fixtures/mock-lesson-plan.json', import.meta.url), 'utf8'));
@@ -15,7 +17,8 @@ const studentB = 'student-session-b';
 
 function service(delayMs = 0) {
   const ai = createMockAI(plan, { delayMs });
-  return { ai, store: createPlanStore({ ai }), chat: createChatService({ ai, store: createPlanStore({ ai }) }) };
+  const store = { getDraft: async () => ({ rules: plan.rules, steps: plan.steps }) };
+  return { ai, chat: createChatService({ ai, store }) };
 }
 
 async function withServer(run, { delayMs = 0 } = {}) {
@@ -28,7 +31,7 @@ async function withServer(run, { delayMs = 0 } = {}) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   try {
-    await run(call);
+    await run(call, base);
   } finally {
     server.close();
   }
@@ -94,10 +97,10 @@ test('the oldest entries are dropped past the limit and the newest kept', () => 
 });
 
 test('publish over HTTP: 409 without a draft, then a link a student can open and play', async () => {
-  await withServer(async call => {
+  await withServer(async (call, base) => {
     assert.equal((await call('/api/lessons/publish', { session: teacher, body: {} })).status, 409);
 
-    await call('/api/lessons', { session: teacher, body: {} });
+    await buildDraft(base, teacher);
     const { id } = await (await call('/api/lessons/publish', { session: teacher, body: {} })).json();
     assert.match(id, /^[\w-]{4,32}$/);
 
@@ -134,4 +137,11 @@ test('an invalid session id is refused and a missing one uses the shared session
     assert.equal((await call('/api/chat', { session: 'short' })).status, 400);
     assert.equal((await call('/api/chat')).status, 404);
   });
+});
+
+test('starting without a built lesson is refused instead of teaching a sample lesson', async () => {
+  const chat = createChatService({ ai: createMockAI(plan), store: { getDraft: async () => null } });
+  await assert.rejects(chat.turn({ type: 'start' }), error => error.status === 409 && /Build a lesson first/.test(error.message));
+  const store = createPlanStore({ ai: createMockAI(plan) });
+  assert.equal(store.getDraft('nobody'), null);
 });
