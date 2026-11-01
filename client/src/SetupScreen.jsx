@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { goalProblem, MAX_PROMPT, PLACEHOLDER } from './goalRules.js';
+import { goalProblem, MAX_PROMPT } from './goalRules.js';
 import KeySettings from './KeySettings.jsx';
 
 const WARN_AT = 450;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ['pdf', 'docx'];
-const EXAMPLE = 'Teach this to 7th graders, in French. Be Socratic. Keep it under 15 minutes.';
-// One template: a whole goal with [placeholders] the teacher fills in. The brackets are highlighted and block Build until replaced.
-const TEMPLATE = 'Teach [topic] to [grade] students, in [language]. Be Socratic. Check understanding after each step. Keep it under [minutes] minutes.';
+// A fixed example of a good goal: audience, language, method, checking and time. It works with any file, and the teacher edits it.
+const EXAMPLE_GOAL = 'Teach this file to 7th grade students, in English. Be Socratic. Check understanding after each step. Keep it under 15 minutes.';
 
 function formatSize(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -30,9 +29,6 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
   const [error, setError] = useState('');
   const input = useRef(null);
   const goal = useRef(null);
-  const backdrop = useRef(null);
-  // After a template is inserted, the first [placeholder] is selected so the teacher can type over it.
-  const selectPlaceholder = useRef(false);
 
   // The goal box grows with the text, up to a limit, so long goals stay visible.
   useEffect(() => {
@@ -40,29 +36,19 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
     if (!field) return;
     field.style.height = 'auto';
     field.style.height = `${Math.min(field.scrollHeight, 320)}px`;
-    if (selectPlaceholder.current) {
-      selectPlaceholder.current = false;
-      const match = PLACEHOLDER.exec(prompt);
-      if (match) {
-        field.focus();
-        field.setSelectionRange(match.index, match.index + match[0].length);
-      }
-    }
   }, [prompt]);
-
-  // The goal is drawn twice: the real textarea has transparent text, and this copy behind it paints the [brackets] light green.
-  const highlighted = prompt.split(/(\[[^\]]*\])/).map((part, index) => (index % 2
-    ? <mark key={index} className="rounded bg-emerald-100 text-emerald-900">{part}</mark>
-    : part));
 
   const reason = !file ? 'Add a .docx or .pdf file to continue.' : goalProblem(prompt);
   const canBuild = !reason;
-  const wouldExceed = prompt.trim() ? prompt.trimEnd().length + TEMPLATE.length + 1 > MAX_PROMPT : false;
 
-  // An empty box takes the template. A box with text gets the template on a new line, so nothing is lost.
-  function insertTemplate(text) {
-    setPrompt(current => (current.trim() ? `${current.trimEnd()}\n${text}` : text));
-    selectPlaceholder.current = true;
+  // The example fills an empty box and leaves the cursor at the end, ready to edit.
+  function useExample() {
+    setPrompt(EXAMPLE_GOAL);
+    requestAnimationFrame(() => {
+      const field = goal.current;
+      field?.focus();
+      field?.setSelectionRange(EXAMPLE_GOAL.length, EXAMPLE_GOAL.length);
+    });
   }
 
   function pick(candidate) {
@@ -96,14 +82,9 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
         onDragLeave={() => setDragging(false)}
         onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
         className={`mt-8 rounded-3xl border bg-white shadow-lg transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10 ${dragging ? 'border-teal-600 bg-teal-50/40' : 'border-stone-300'}`}>
-        <div className="relative">
-          <div ref={backdrop} aria-hidden="true" dir="auto"
-            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-5 pt-5 text-base leading-7 text-stone-900 sm:text-lg">{highlighted}{'\n'}</div>
-          <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
-            onScroll={event => { if (backdrop.current) backdrop.current.scrollTop = event.target.scrollTop; }}
-            placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
-            className="relative block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 text-transparent caret-stone-900 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
-        </div>
+        <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
+          placeholder={EXAMPLE_GOAL} aria-describedby="goal-help goal-hint"
+          className="block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
 
         {file && <div className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-2xl bg-stone-100 px-4 py-2 text-sm">
           <p dir="auto" className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
@@ -132,12 +113,12 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
 
       <p id="goal-help" className="mt-3 text-center text-sm text-stone-600" role="status">{reason}</p>
 
-      <div className="mt-4 text-center">
-        <button type="button" disabled={wouldExceed} title={TEMPLATE} onClick={() => insertTemplate(TEMPLATE)}
-          className="rounded-full border border-teal-300 bg-teal-50 px-4 py-2.5 text-xs text-teal-900 hover:border-teal-600 disabled:opacity-50">
-          Use the template
+      {!prompt.trim() && <div className="mt-4 text-center">
+        <button type="button" title={EXAMPLE_GOAL} onClick={useExample}
+          className="rounded-full border border-teal-300 bg-teal-50 px-4 py-2.5 text-xs text-teal-900 hover:border-teal-600">
+          Use an example goal
         </button>
-      </div>
+      </div>}
 
       {error && <p role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">{error}</p>}
       {appError && !error && <p role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">

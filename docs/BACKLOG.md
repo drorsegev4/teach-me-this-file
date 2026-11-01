@@ -2,10 +2,6 @@
 
 Items agreed to do later. Not started unless marked. Newest first. See `TEST_PLAN.md` for tests and evals.
 
-## UX
-
-- **Template shows a worked example, not brackets.** The "Use the template" chip should fill the goal box with a realistic filled-in goal, for example `Teach photosynthesis to 7th grade students, in English. Be Socratic. Check understanding after each step. Keep it under 15 minutes.` The teacher sees what a good goal looks like and can edit it. Today it inserts `Teach [topic] to [grade] students, in [language]. ... under [minutes] minutes.` with green brackets that block Build. Decide then: keep the brackets as an optional second chip, or drop them. (Added 1 Nov 2026.)
-
 ## Product and architecture (from the 1 Nov audit)
 
 - Publish flow: a Publish button in the Create panel makes a lesson id and a link `/l/:id`. The student page is the chat alone, full screen, no goal or plan visible. "Open as student" keeps the key in memory in the same tab.
