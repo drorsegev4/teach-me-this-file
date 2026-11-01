@@ -59,3 +59,36 @@ test('a 401 from Groq says the key was rejected and never echoes the provider bo
   await assert.rejects(ai.classify({ studentText: 'x' }), error => /rejected the API key/.test(error.message) && !error.message.includes('sk-secret'));
   await assert.rejects(ai.replyStream({ rules: {}, step: { title: 't', source: 's' }, onChunk() {} }), error => /rejected the API key/.test(error.message));
 });
+
+const rateLimited = retryAfter => new Response('{}', { status: 429, headers: retryAfter ? { 'retry-after': retryAfter } : {} });
+const okPlan = () => new Response(JSON.stringify(completion(plan)), { status: 200 });
+
+test('a 429 with a short Retry-After is retried once and then succeeds', async () => {
+  const replies = [rateLimited('1'), okPlan()];
+  let calls = 0;
+  const ai = createAI({ apiKey: 'k', fetchImpl: async () => { calls += 1; return replies.shift(); } });
+  const result = await ai.planLesson({ text: 'doc', teacherPrompt: 'p' });
+  assert.equal(calls, 2);
+  assert.equal(result.steps.length, 1);
+});
+
+test('a 429 with a long Retry-After is not retried and says how long to wait', async () => {
+  let calls = 0;
+  const ai = createAI({ apiKey: 'k', fetchImpl: async () => { calls += 1; return rateLimited('60'); } });
+  await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), error => /rate-limiting this key.*about 60 seconds/.test(error.message));
+  assert.equal(calls, 1);
+});
+
+test('a 429 without Retry-After is reported once with a generic wait', async () => {
+  let calls = 0;
+  const ai = createAI({ apiKey: 'k', fetchImpl: async () => { calls += 1; return rateLimited(); } });
+  await assert.rejects(ai.classify({ studentText: 'x' }), error => /rate-limiting this key\. Wait a minute/.test(error.message));
+  assert.equal(calls, 1);
+});
+
+test('repeated 429s stop after two retries and are reported', async () => {
+  let calls = 0;
+  const ai = createAI({ apiKey: 'k', fetchImpl: async () => { calls += 1; return rateLimited('1'); } });
+  await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), error => /rate-limiting/.test(error.message));
+  assert.equal(calls, 3);
+});
