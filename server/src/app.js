@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { createAI, createMockAI } from './ai.js';
 import { createChatRouter } from './chatRouter.js';
 import { createChatService } from './chatService.js';
-import { createDevRouter, devToolsEnabled } from './devTools.js';
 import { createLessonsRouter } from './lessonsRouter.js';
 import { createPlanStore } from './planStore.js';
 import { isValidSessionId, SESSION_HEADER } from './session.js';
@@ -27,7 +26,12 @@ function reviewerKey(req) {
   return req.get(KEY_HEADER)?.trim() || process.env.GROQ_API_KEY;
 }
 
-export function createApp({ ai: injectedAI, devTools = devToolsEnabled() } = {}) {
+// A local prompt playground, kept out of the repository. It is mounted only when the file exists and is enabled.
+const dev = process.env.NODE_ENV === 'development' || process.env.DEV_TOOLS === '1'
+  ? await import('./devTools.js').catch(() => null)
+  : null;
+
+export function createApp({ ai: injectedAI, devTools = Boolean(dev?.devToolsEnabled()) } = {}) {
   const app = express();
   const fallbackAI = injectedAI ?? defaultAI();
   const aiFor = req => injectedAI ?? (process.env.AI_MODE === 'mock' ? fallbackAI : createAI({ apiKey: reviewerKey(req) }));
@@ -35,7 +39,7 @@ export function createApp({ ai: injectedAI, devTools = devToolsEnabled() } = {})
   const chat = createChatService({ store });
   app.disable('x-powered-by');
   // Dev tools go first: they take larger bodies (material text) and are absent unless enabled.
-  if (devTools) app.use('/api/dev', express.json({ limit: '1mb' }), createDevRouter({ ai: fallbackAI }));
+  if (devTools && dev) app.use('/api/dev', express.json({ limit: '1mb' }), dev.createDevRouter({ ai: fallbackAI }));
   app.use('/api', (req, res, next) => {
     const key = req.get(KEY_HEADER);
     if (key && (key.trim().length > 200 || /\s/.test(key.trim()))) {

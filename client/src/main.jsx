@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
 
-// The playground is a dev-only page. Vite replaces import.meta.env.DEV with false in builds,
-// so this branch and the playground code are removed from the production bundle.
+// A local prompt playground, kept out of the repository. It is a dev-only page: Vite replaces import.meta.env.DEV
+// with false in builds, and the path is a variable so a build does not need the file to exist.
+const playgroundPath = './Playground.jsx';
 const Playground = import.meta.env.DEV && location.pathname === '/playground'
-  ? React.lazy(() => import('./Playground.jsx'))
+  ? React.lazy(() => import(/* @vite-ignore */ playgroundPath))
   : null;
 
 createRoot(document.getElementById('root')).render(
