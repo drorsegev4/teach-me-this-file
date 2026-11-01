@@ -13,9 +13,10 @@ const clientDist = fileURLToPath(new URL('../../dist/', import.meta.url));
 export const KEY_HEADER = 'X-Groq-Api-Key';
 
 // AI_MODE=mock serves a saved plan and scripted replies instead of calling the provider (for UI work offline).
+// MOCK_DELAY_MS slows the scripted reply down so Stop can be tried by hand.
 function defaultAI() {
   if (process.env.AI_MODE === 'mock') {
-    return createMockAI(JSON.parse(readFileSync(new URL('../fixtures/mock-lesson-plan.json', import.meta.url), 'utf8')));
+    return createMockAI(JSON.parse(readFileSync(new URL('../fixtures/mock-lesson-plan.json', import.meta.url), 'utf8')), { delayMs: Number(process.env.MOCK_DELAY_MS) || 30 });
   }
   return createAI({ apiKey: process.env.GROQ_API_KEY });
 }

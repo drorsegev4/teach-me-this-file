@@ -8,7 +8,7 @@ import { useLessonSession } from './useLessonSession.js';
 // It shows nothing of the teacher's goal, file or plan.
 export default function StudentApp({ lessonId, apiKey, setApiKey }) {
   const session = { ...useLessonSession({ apiKey, lessonId }), setApiKey };
-  const { chat, streaming, lesson, error, startLesson } = session;
+  const { chat, streaming, lesson, error, notice, startLesson } = session;
   const [hostKey, setHostKey] = useState(null);
   useEffect(() => { getHostKey().then(setHostKey); }, []);
 
@@ -40,6 +40,7 @@ export default function StudentApp({ lessonId, apiKey, setApiKey }) {
         </p>
         {hostKey === false && <div className="mt-4"><KeySettings apiKey={apiKey} onKeyChange={setApiKey} open /></div>}
         {error && <p role="alert" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">{error}</p>}
+        {notice && <p role="status" className="mt-4 text-sm text-stone-600">{notice}</p>}
         <button type="button" disabled={needsKey || hostKey === null} onClick={startLesson}
           className="mt-5 w-full rounded-xl bg-teal-700 px-4 py-3 font-medium text-white disabled:bg-stone-300">Start lesson</button>
         {needsKey && <p className="mt-2 text-center text-xs text-stone-500">Paste your Groq API key above to start.</p>}

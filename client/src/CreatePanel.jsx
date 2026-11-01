@@ -19,7 +19,7 @@ function materialNotes(material) {
 // The teacher's side. Top: the lesson plan, with the source quote behind each step.
 // Below: the conversation with the builder (the goal, then each change asked for), and a box at the bottom for the next change.
 export default function CreatePanel({ session, onOpenStudent }) {
-  const { chat, brief, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, requestChange, newLesson, published, publishing, publishError, publish } = session;
+  const { chat, brief, plan, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, requestChange, newLesson, published, publishing, publishError, publish } = session;
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const link = published ? `${window.location.origin}/l/${published.id}` : '';
@@ -32,7 +32,7 @@ export default function CreatePanel({ session, onOpenStudent }) {
     } catch { /* clipboard can be blocked; the link is shown to copy by hand */ }
   }
 
-  const steps = chat?.steps ?? [];
+  const steps = chat?.steps ?? plan?.steps ?? [];
   const busy = building || streaming;
   const text = draft.trim();
   const tooLong = Boolean(brief) && text && fullGoal({ ...brief, changes: [...brief.changes, text] }).length > MAX_TOTAL_PROMPT;
@@ -76,12 +76,12 @@ export default function CreatePanel({ session, onOpenStudent }) {
         <p dir="auto" className="mt-1 truncate text-xs text-stone-600" title={fileName}>{fileName}</p>
         <ol className="mt-3 space-y-3">
           {steps.map((step, index) => {
-            const done = chat.completedStepIds.includes(step.id);
-            const current = step.id === chat.currentStepId;
-            const movedOn = chat.movedOnStepIds.includes(step.id);
+            const done = Boolean(chat?.completedStepIds.includes(step.id));
+            const current = Boolean(chat) && step.id === chat.currentStepId;
+            const movedOn = Boolean(chat?.movedOnStepIds.includes(step.id));
             const status = done ? 'Done' : movedOn ? 'Moved on' : current ? 'Now' : 'Next';
             const pill = done ? 'bg-teal-600 text-white' : movedOn ? 'bg-stone-200 text-stone-700' : current ? 'bg-teal-100 text-teal-900' : 'bg-stone-100 text-stone-500';
-            return <li key={step.id} className="flex gap-3">
+            return <li key={step.id ?? index} className="flex gap-3">
               <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${pill}`}>{index + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium">

@@ -28,6 +28,8 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   const [published, setPublished] = useState(null);
   // What part of the file the lesson was built from, as the server reported it.
   const [material, setMaterial] = useState(null);
+  // The plan as built ({ rules, steps }), kept so the teacher sees it even before the first reply arrives or after it fails.
+  const [plan, setPlan] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const controller = useRef(null);
@@ -92,6 +94,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setPublished(null);
     setPublishError('');
     setMaterial(null);
+    setPlan(null);
     setError('');
     setNotice('');
     setStoppedReply('');
@@ -101,6 +104,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
       const built = await buildLesson({ file: next.file, prompt: fullGoal(next), apiKey: apiKey.trim(), sessionId });
       setFileName(built.fileName ?? '');
       setMaterial(built.material ?? null);
+      setPlan({ rules: built.rules, steps: built.steps });
       setBuilding(false);
       run({ type: 'start' });
     } catch (failure) {
@@ -146,6 +150,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setChat(null);
     setBrief(null);
     setMaterial(null);
+    setPlan(null);
     setPublished(null);
     setPublishError('');
     setBuildError('');
@@ -170,7 +175,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
 
   return {
     chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice,
-    openSource, setOpenSource, apiKey, fileName, material, lessonId, lesson, startLesson,
+    openSource, setOpenSource, apiKey, fileName, material, plan, lessonId, lesson, startLesson,
     published, publishing, publishError, publish,
     brief, building, buildError, build, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };

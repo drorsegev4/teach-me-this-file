@@ -12,6 +12,8 @@ export default function LessonChat({ session }) {
   const currentStep = steps[currentIndex];
   const rulesLine = chat && [chat.rules.audience, chat.rules.language, chat.rules.method, chat.rules.timeLimit].filter(Boolean).join(' · ');
   const direction = languageDirection(chat?.rules?.language);
+  // The passage behind a message is for the teacher checking the lesson. A student on a published link does not see it.
+  const showSource = !session.lessonId;
 
   return <div dir={direction} className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-4 py-6 lg:overflow-y-auto">
     <header className="mb-4">
@@ -43,10 +45,10 @@ export default function LessonChat({ session }) {
         ? <p key={message.id} dir="auto" className="ms-auto max-w-[85%] rounded-2xl rounded-ee-sm bg-teal-700 px-4 py-2 text-sm text-white">{message.text}</p>
         : <div key={message.id} className="max-w-[90%]">
           <p dir="auto" className="rounded-2xl rounded-es-sm bg-white px-4 py-2 text-sm leading-6 shadow-sm">{message.text}</p>
-          {message.quote && <button className="mt-1 text-xs text-teal-700 underline" aria-expanded={openSource === message.id} onClick={() => setOpenSource(openSource === message.id ? null : message.id)}>
+          {showSource && message.quote && <button className="mt-1 text-xs text-teal-700 underline" aria-expanded={openSource === message.id} onClick={() => setOpenSource(openSource === message.id ? null : message.id)}>
             {openSource === message.id ? 'Hide source' : 'Show source'}
           </button>}
-          {openSource === message.id && <blockquote dir="auto" className="mt-1 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600">“{message.quote}”</blockquote>}
+          {showSource && openSource === message.id && <blockquote dir="auto" className="mt-1 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600">“{message.quote}”</blockquote>}
         </div>)}
       {pending && <p dir="auto" className="ms-auto max-w-[85%] rounded-2xl rounded-ee-sm bg-teal-700/80 px-4 py-2 text-sm text-white">{pending}</p>}
       {stoppedReply && !streaming && <div className="max-w-[90%]">
@@ -55,7 +57,6 @@ export default function LessonChat({ session }) {
       </div>}
       {streaming && <div className="max-w-[90%]">
         <p dir="auto" className="rounded-2xl rounded-es-sm bg-white px-4 py-2 text-sm leading-6 shadow-sm">{partial || <span className="text-stone-500">Tutor is thinking…</span>}</p>
-        <button className="mt-2 rounded-lg border border-stone-300 px-3 py-1 text-xs" onClick={stop}>Stop</button>
       </div>}
     </section>}
 
@@ -73,12 +74,15 @@ export default function LessonChat({ session }) {
       <p className="mt-3 text-xs text-stone-500">Moving on is fine. This step can be revisited later.</p>
     </div>}
 
-    {chat && !chat.lessonComplete && <form onSubmit={send} className="sticky bottom-0 mt-6 bg-[#faf9f6] pt-3">
+    {((chat && !chat.lessonComplete) || streaming) && <form onSubmit={send} className="sticky bottom-0 mt-6 bg-[#faf9f6] pt-3">
       <label htmlFor="answer" className="sr-only">Your answer</label>
       <textarea id="answer" dir="auto" value={draft} onChange={event => setDraft(event.target.value)} disabled={streaming} maxLength={2000} rows={2}
         placeholder="Type your answer here, or ask a question about this file" className="w-full rounded-xl border border-stone-300 bg-white p-3 text-sm disabled:opacity-60" />
       <div className="mt-2 flex justify-end">
-        <button className="rounded-xl bg-teal-700 px-5 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={streaming || !draft.trim()}>Send</button>
+        {/* While the tutor is writing, the same button that sends becomes Stop, so it is always where the thumb is. */}
+        {streaming
+          ? <button type="button" onClick={stop} className="rounded-xl border border-red-300 bg-red-50 px-5 py-2 text-sm font-medium text-red-800">■ Stop</button>
+          : <button className="rounded-xl bg-teal-700 px-5 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!draft.trim()}>Send</button>}
       </div>
     </form>}
   </div>;
