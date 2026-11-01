@@ -45,7 +45,7 @@ export default function LessonChat({ session }) {
         ? <p key={message.id} dir="auto" className="ms-auto max-w-[85%] rounded-2xl rounded-ee-sm bg-teal-700 px-4 py-2 text-sm text-white">{message.text}</p>
         : <div key={message.id} className="max-w-[90%]">
           <p dir="auto" className="rounded-2xl rounded-es-sm bg-white px-4 py-2 text-sm leading-6 shadow-sm">{message.text}</p>
-          {showSource && message.quote && <button className="mt-1 text-xs text-teal-700 underline" aria-expanded={openSource === message.id} onClick={() => setOpenSource(openSource === message.id ? null : message.id)}>
+          {showSource && message.quote && <button className="-mb-1 mt-1 py-2 pe-3 text-xs text-teal-700 underline" aria-expanded={openSource === message.id} onClick={() => setOpenSource(openSource === message.id ? null : message.id)}>
             {openSource === message.id ? 'Hide source' : 'Show source'}
           </button>}
           {showSource && openSource === message.id && <blockquote dir="auto" className="mt-1 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600">“{message.quote}”</blockquote>}

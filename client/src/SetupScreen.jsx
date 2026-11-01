@@ -134,7 +134,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
 
       <div className="mt-4 text-center">
         <button type="button" disabled={wouldExceed} title={TEMPLATE} onClick={() => insertTemplate(TEMPLATE)}
-          className="rounded-full border border-teal-300 bg-teal-50 px-4 py-1.5 text-xs text-teal-900 hover:border-teal-600 disabled:opacity-50">
+          className="rounded-full border border-teal-300 bg-teal-50 px-4 py-2.5 text-xs text-teal-900 hover:border-teal-600 disabled:opacity-50">
           Use the template
         </button>
       </div>

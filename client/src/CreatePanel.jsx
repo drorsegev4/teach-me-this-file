@@ -48,14 +48,14 @@ export default function CreatePanel({ session, onOpenStudent }) {
   return <div className="flex min-h-0 flex-1 flex-col">
     <header className="flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Create lesson</p>
-      <button className="text-xs text-teal-800 underline disabled:opacity-50" disabled={busy} onClick={newLesson}>New lesson</button>
+      <button className="-my-2 px-2 py-2 text-xs text-teal-800 underline disabled:opacity-50" disabled={busy} onClick={newLesson}>New lesson</button>
     </header>
 
     <section aria-label="Lesson plan" className="max-h-[40vh] shrink-0 overflow-y-auto border-b border-stone-200 bg-white px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold">Lesson plan</h2>
         {steps.length > 0 && !published && <button type="button" disabled={busy || publishing} onClick={publish}
-          className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-medium text-white disabled:bg-stone-300">{publishing ? 'Publishing…' : 'Publish for students'}</button>}
+          className="rounded-lg bg-teal-700 px-3 py-2.5 text-xs font-medium text-white disabled:bg-stone-300">{publishing ? 'Publishing…' : 'Publish for students'}</button>}
       </div>
       {published && <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs">
         <p className="font-medium text-teal-900">Published. Share this link with students:</p>
@@ -89,7 +89,7 @@ export default function CreatePanel({ session, onOpenStudent }) {
                   <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{status}</span>
                 </p>
                 <details className="mt-1 text-xs text-stone-600">
-                  <summary className="cursor-pointer">Source from the file</summary>
+                  <summary className="cursor-pointer py-2">Source from the file</summary>
                   <blockquote dir="auto" className="mt-1 rounded-lg bg-stone-50 p-3 leading-5">“{step.source}”</blockquote>
                 </details>
               </div>

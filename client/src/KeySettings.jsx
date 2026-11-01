@@ -14,7 +14,7 @@ export default function KeySettings({ apiKey, onKeyChange, disabled, open = fals
   const hasKey = Boolean(apiKey.trim());
   const canApply = Boolean(onApply) && hasKey && !warning && !disabled;
   return <details open={open || undefined} className="rounded-xl bg-stone-50 p-4 text-sm">
-    <summary className="cursor-pointer font-medium">Settings</summary>
+    <summary className="cursor-pointer py-1 font-medium">Settings</summary>
     <label htmlFor="api-key" className="mt-3 block font-medium">Groq API key</label>
     <input id="api-key" type="password" value={apiKey} onChange={event => onKeyChange(event.target.value)} autoComplete="off" spellCheck={false}
       onKeyDown={event => { if (event.key === 'Enter' && canApply) onApply(); }}
