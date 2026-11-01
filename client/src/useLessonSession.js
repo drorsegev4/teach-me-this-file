@@ -73,9 +73,15 @@ export function useLessonSession() {
     run({ type: 'message', text }, { onStart: () => setPending(text) });
   }
 
+  // The student chose to leave the current step after several tries. The server marks it and opens the next one.
+  function moveOn() {
+    if (streaming) return;
+    run({ type: 'move_on' });
+  }
+
   return {
     chat, partial, pending, draft, setDraft, streaming, error, setError, notice,
     openSource, setOpenSource, apiKey, setApiKey, fileName,
-    startBuiltLesson, newLesson, send, stop: () => controller.current?.abort(),
+    startBuiltLesson, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };
 }

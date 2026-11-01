@@ -25,8 +25,9 @@ export default function LessonCanvas({ session }) {
           const done = chat.completedStepIds.includes(step.id);
           const current = step.id === chat.currentStepId;
           const source = sourceFor(step.id);
-          const status = done ? 'Done' : current ? 'Now' : 'Next';
-          const pill = done ? 'bg-teal-600 text-white' : current ? 'bg-teal-100 text-teal-900' : 'bg-stone-100 text-stone-500';
+          const movedOn = chat.movedOnStepIds.includes(step.id);
+          const status = done ? 'Done' : movedOn ? 'Moved on' : current ? 'Now' : 'Next';
+          const pill = done ? 'bg-teal-600 text-white' : movedOn ? 'bg-stone-200 text-stone-700' : current ? 'bg-teal-100 text-teal-900' : 'bg-stone-100 text-stone-500';
           return <li key={step.id} className="flex gap-3">
             <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${pill}`}>{index + 1}</span>
             <div className="min-w-0 flex-1">

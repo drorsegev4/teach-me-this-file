@@ -3,7 +3,7 @@ import { languageDirection } from './direction.js';
 // The student's side of the lesson: progress, the conversation, and the answer box.
 // Layout uses logical classes (ms-, rounded-es-, rounded-ee-) so it mirrors when the lesson is right-to-left.
 export default function LessonChat({ session }) {
-  const { chat, partial, pending, draft, setDraft, streaming, error, setError, notice, openSource, setOpenSource, newLesson, send, stop } = session;
+  const { chat, partial, pending, draft, setDraft, streaming, error, setError, notice, openSource, setOpenSource, newLesson, send, moveOn, stop } = session;
 
   const steps = chat?.steps ?? [];
   const total = steps.length;
@@ -28,9 +28,12 @@ export default function LessonChat({ session }) {
     {chat && <ol className="mb-4 flex gap-1" aria-label="Lesson progress">
       {steps.map((step, index) => {
         const done = chat.completedStepIds.includes(step.id);
+        const movedOn = chat.movedOnStepIds.includes(step.id);
         const current = step.id === chat.currentStepId;
-        return <li key={step.id} title={step.title} className={`h-2 flex-1 rounded-full ${done ? 'bg-teal-600' : current ? 'bg-teal-300' : 'bg-stone-200'}`}>
-          <span className="sr-only">{done ? 'Done: ' : current ? 'Current: ' : ''}{step.title} ({index + 1} of {total})</span>
+        // A moved-on step is a neutral grey, not an error colour: it can be revisited later.
+        const color = done ? 'bg-teal-600' : movedOn ? 'bg-stone-400' : current ? 'bg-teal-300' : 'bg-stone-200';
+        return <li key={step.id} title={step.title} className={`h-2 flex-1 rounded-full ${color}`}>
+          <span className="sr-only">{done ? 'Done: ' : movedOn ? 'Moved on: ' : current ? 'Current: ' : ''}{step.title} ({index + 1} of {total})</span>
         </li>;
       })}
     </ol>}
@@ -61,6 +64,15 @@ export default function LessonChat({ session }) {
     {chat?.lessonComplete && !streaming && <div className="mt-6 rounded-xl bg-teal-950 p-4 text-sm text-teal-100">
       <p>You finished every step.</p>
       <button className="mt-3 w-full rounded-xl border border-teal-400 px-4 py-2 text-white" onClick={newLesson}>New lesson</button>
+    </div>}
+
+    {chat?.needsChoice && !streaming && !chat.lessonComplete && <div role="group" aria-label="Choose how to continue" className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 text-sm">
+      <p dir="auto">Try once more, or move on to the next step?</p>
+      <div className="mt-3 flex gap-2">
+        <button type="button" className="flex-1 rounded-xl border border-teal-700 px-4 py-2 text-teal-800" onClick={() => document.getElementById('answer')?.focus()}>Try again</button>
+        <button type="button" className="flex-1 rounded-xl bg-stone-700 px-4 py-2 text-white" onClick={moveOn}>Move on</button>
+      </div>
+      <p className="mt-3 text-xs text-stone-500">Moving on is fine. This step can be revisited later.</p>
     </div>}
 
     {chat && !chat.lessonComplete && <form onSubmit={send} className="sticky bottom-0 mt-6 bg-[#faf9f6] pt-3">
