@@ -16,7 +16,22 @@
     "title": "איך ההתניה נוצרת?",
     "source": "לאחר חשיפה חוזרת ונשנית לשני גירויים שמתרחשים ברצף אנו מקשרים בין שני גירויים אלו."
   },
-  "answerGroups": [["לקשר", "מקשר", "קישור", "חיבור"], ["גירוי"], ["לנבא", "לחזות", "צפוי"]],
+  "answerGroups": [
+    [
+      "לקשר",
+      "מקשר",
+      "קישור",
+      "חיבור"
+    ],
+    [
+      "גירוי"
+    ],
+    [
+      "לנבא",
+      "לחזות",
+      "צפוי"
+    ]
+  ],
   "thresholds": {
     "runsPerScenario": 3,
     "scenarioPassRate": 0.8,
@@ -25,26 +40,77 @@
   },
   "scenarios": [
     {
-      "id": 1, "name": "Opening the step (direct explanation method)",
-      "status": "open", "attempt": 0, "rung": "explain", "explains": true, "studentText": null, "history": []
+      "id": 1,
+      "name": "Opening the step: inviting, no definition and no example",
+      "status": "open",
+      "attempt": 0,
+      "rung": "open",
+      "studentText": null,
+      "history": []
     },
     {
-      "id": 2, "name": "Student asks to be explained (Socratic lesson)",
-      "status": "no_attempt", "attempt": 1, "rung": "explain", "explains": true,
-      "rules": { "language": "Hebrew", "audience": "10th grade", "timeLimit": null, "method": "Socratic" },
+      "id": 2,
+      "name": "Student asks to be explained (Socratic lesson)",
+      "status": "no_attempt",
+      "attempt": 1,
+      "rung": "explain",
+      "explains": true,
+      "rules": {
+        "language": "Hebrew",
+        "audience": "10th grade",
+        "timeLimit": null,
+        "method": "Socratic"
+      },
       "studentText": "תסביר לי מה זה בכלל התניה קלאסית",
-      "history": [{ "role": "tutor", "text": "(שאלת הפתיחה של השלב)" }]
+      "history": [
+        {
+          "role": "tutor",
+          "text": "(שאלת הפתיחה של השלב)"
+        }
+      ]
     },
     {
-      "id": 3, "name": "Third try after two wrong answers",
-      "status": "keep_going", "attempt": 3, "rung": "rung3", "explains": true,
+      "id": 3,
+      "name": "Third try after two wrong answers",
+      "status": "keep_going",
+      "attempt": 3,
+      "rung": "rung3",
       "studentText": "זה כשמענישים מישהו על משהו שהוא עשה",
       "history": [
-        { "role": "tutor", "text": "(שאלת הפתיחה של השלב)" },
-        { "role": "student", "text": "כשלומדים משהו חדש" },
-        { "role": "tutor", "text": "קרוב, אבל חשוב על שני דברים שקורים ברצף. מה קורה כשאתה שומע צלצול פעמון בבית הספר?" },
-        { "role": "student", "text": "זה כשמענישים מישהו על משהו שהוא עשה" },
-        { "role": "tutor", "text": "ההתניה הזו עוסקת בחיבור בין שני גירויים, לא בעונש. מה קורה לך כשאתה שומע את הצלצול בסוף השיעור?" }
+        {
+          "role": "tutor",
+          "text": "(שאלת הפתיחה של השלב)"
+        },
+        {
+          "role": "student",
+          "text": "כשלומדים משהו חדש"
+        },
+        {
+          "role": "tutor",
+          "text": "קרוב, אבל חשוב על שני דברים שקורים ברצף. מה קורה כשאתה שומע צלצול פעמון בבית הספר?"
+        },
+        {
+          "role": "student",
+          "text": "זה כשמענישים מישהו על משהו שהוא עשה"
+        },
+        {
+          "role": "tutor",
+          "text": "ההתניה הזו עוסקת בחיבור בין שני גירויים, לא בעונש. מה קורה לך כשאתה שומע את הצלצול בסוף השיעור?"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "First miss: the same question, simpler, no hint",
+      "status": "keep_going",
+      "attempt": 1,
+      "rung": "rung1",
+      "studentText": "זה כשמענישים מישהו על משהו שהוא עשה",
+      "history": [
+        {
+          "role": "tutor",
+          "text": "(שאלת הפתיחה של השלב)"
+        }
       ]
     }
   ]

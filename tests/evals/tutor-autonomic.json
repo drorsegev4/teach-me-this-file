@@ -315,11 +315,10 @@
     },
     {
       "id": 15,
-      "name": "Opening the step (direct explanation method), a different subject",
+      "name": "Opening the step, a different subject (direct explanation method)",
       "status": "open",
       "attempt": 0,
-      "rung": "explain",
-      "explains": true,
+      "rung": "open",
       "rules": {
         "language": "Hebrew",
         "audience": "7th grade",

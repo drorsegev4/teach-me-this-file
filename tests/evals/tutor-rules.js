@@ -143,7 +143,7 @@ export function evaluateReply(reply, scenario, lesson) {
   if (scenario.explains) {
     if (lesson.step?.source) add('R9', 'Does not copy the source definition (no run of more than 7 shared words)', longestSharedRun(reply, lesson.step.source) <= 7);
     add('R9a', 'An explanation is more than a one-line question: at least 35 words and at least 3 sentences', wordCount(reply) >= 35 && sentenceCount(reply) >= 3);
-    add('R9h', 'Explains through a concrete example from the subject, in a casual tone, not by restating the definition', null, { kind: 'human' });
+    add('R9h', 'Explains in simple words, casually, with at most one example, not by restating the definition', null, { kind: 'human' });
     add('R9i', 'The example maps correctly onto the source idea and adds no new facts or terms', null, { kind: 'human' });
   }
   if (scenario.status === 'understood' || scenario.status === 'moved_on') {

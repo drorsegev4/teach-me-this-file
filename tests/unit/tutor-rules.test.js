@@ -33,10 +33,12 @@ test('praise and error naming are found in either language', () => {
   assert.equal(namesError('בוא ננסה בצורה אחרת'), false);
 });
 
-test('rung 1 fails when the reply names the error or gives away a part of the answer', () => {
+test('rung 1 fails when the reply names the error or gives away any part of the answer', () => {
   const scenario = { status: 'keep_going', attempt: 1, rung: 'rung1' };
   assert.deepEqual(failed(evaluateReply('בוא ננסה שוב: מה אתה מרגיש בגוף כשאתה רץ מהר?', scenario, lesson)), []);
-  assert.deepEqual(failed(evaluateReply('זה לא נכון. מה קורה לקצב הלב כשרצים?', scenario, lesson)), ['R3', 'R3b']);
+  assert.deepEqual(failed(evaluateReply('זה לא נכון. מה קורה לקצב הלב ולהזעה כשרצים?', scenario, lesson)), ['R3', 'R3b']);
+  assert.deepEqual(failed(evaluateReply('חשוב על רגע שבו הופתעת. איך הגוף שלך מגיב?', scenario, lesson)), []);
+  assert.ok(failed(evaluateReply('חשוב על רגע שבו הופתעת. מה קורה לקצב הלב שלך?', scenario, lesson)).includes('R3b'));
 });
 
 test('opening praise after a wrong answer fails, but is allowed after a correct one', () => {
