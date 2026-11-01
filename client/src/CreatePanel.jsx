@@ -2,10 +2,24 @@ import { useState } from 'react';
 import { fullGoal, MAX_TOTAL_PROMPT } from './goalRules.js';
 import KeySettings from './KeySettings.jsx';
 
+// Tells the teacher which part of the file the lesson was built from.
+function materialNotes(material) {
+  const notes = [];
+  if (material.truncated) {
+    const pages = material.pagesUsed;
+    const where = pages && material.totalPages
+      ? `pages ${pages.from}${pages.to === pages.from ? '' : `–${pages.to}`} of ${material.totalPages}${material.endsMidPage ? ' (the last page is cut)' : ''}`
+      : material.usedPercent !== null ? `the first ${material.usedPercent}% of the file` : 'the start of the file';
+    notes.push(`The file is longer than one lesson can read. This lesson uses ${where}. The rest is not part of it. To teach a later part, upload that part as its own file.`);
+  }
+  if (material.removedRepeats > 0) notes.push(`Skipped ${material.removedRepeats} repeated paragraph${material.removedRepeats === 1 ? '' : 's'}.`);
+  return notes;
+}
+
 // The teacher's side. Top: the lesson plan, with the source quote behind each step.
 // Below: the conversation with the builder (the goal, then each change asked for), and a box at the bottom for the next change.
 export default function CreatePanel({ session, onOpenStudent }) {
-  const { chat, brief, building, buildError, streaming, fileName, apiKey, setApiKey, build, requestChange, newLesson, published, publishing, publishError, publish } = session;
+  const { chat, brief, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, requestChange, newLesson, published, publishing, publishError, publish } = session;
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const link = published ? `${window.location.origin}/l/${published.id}` : '';
@@ -95,6 +109,7 @@ export default function CreatePanel({ session, onOpenStudent }) {
           {brief.changes.map((change, index) => <p key={index} dir="auto" className="rounded-2xl bg-stone-200/70 px-4 py-3 text-sm leading-6">{change}</p>)}
         </>
         : <p className="text-sm text-stone-600">This lesson was built before you reloaded the page. Start a new lesson to change it.</p>}
+      {!building && material && materialNotes(material).map(note => <p key={note} role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm">{note}</p>)}
       {building && <p role="status" className="text-sm text-stone-600">Working on it…</p>}
       {buildError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
         <p>{buildError}</p>

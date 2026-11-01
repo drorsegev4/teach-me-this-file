@@ -7,6 +7,7 @@ import { ChatError } from './chat.js';
 import { ProviderError } from './ai.js';
 import { extractDocument, MAX_FILE_BYTES } from './documents.js';
 import { generateLessonPlan, PlanError } from './lessonPlan.js';
+import { DEFAULT_TOKEN_BUDGET, prepareMaterial } from './material.js';
 import { DEFAULT_KEY, remember, sessionKey } from './session.js';
 
 // The hardcoded sample for this stage; the upload screen replaces these later.
@@ -15,8 +16,8 @@ export const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be So
 export const MIN_PROMPT_CHARS = 20;
 // The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
 export const MAX_PROMPT_CHARS = 1500;
-// A conservative guess below the size that failed with Groq 413. Not yet tuned against Groq's exact limit.
-export const MAX_MATERIAL_CHARS = 12000;
+// Token budget for the material of one build. The default fits the free Groq key (about 8,000 tokens per minute).
+const materialBudget = Number(process.env.MATERIAL_TOKEN_BUDGET) || DEFAULT_TOKEN_BUDGET;
 
 const MAX_DRAFTS = 200;
 const MAX_PUBLISHED = 100;
@@ -107,16 +108,13 @@ export function createLessonsRouter({ store, chat, aiFor }) {
       // The reader writes user-facing messages for bad files (wrong type, scanned, too long).
       return res.status(400).json({ error: error.message });
     }
-    const text = document.segments.map(segment => segment.text).join('');
-    // The whole material goes to the model in one request, and Groq rejects requests this large (413).
-    if (text.length > MAX_MATERIAL_CHARS) {
-      return res.status(413).json({ error: `This file has ${text.length.toLocaleString('en-US')} characters. Use a file with at most ${MAX_MATERIAL_CHARS.toLocaleString('en-US')} characters (roughly 4 pages) for now. Nothing was cut.` });
-    }
+    // The lesson is built from the start of the document that fits one request; the notice says what was left out.
+    const { text, notice } = prepareMaterial(document, { budget: materialBudget });
     try {
       chat.reset(sessionKey(req));
       const plan = await store.build({ key: sessionKey(req), ai: aiFor(req), text, teacherPrompt: prompt.data });
       if (plan.error) return res.status(422).json({ error: plan.error });
-      res.json({ ...plan, fileName: document.name, warnings: document.warnings });
+      res.json({ ...plan, fileName: document.name, warnings: document.warnings, material: notice });
     } catch (error) {
       sendFailure(res, error);
     }

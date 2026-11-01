@@ -58,3 +58,30 @@ test('rejects a malformed API key header without echoing it', async () => {
     assert.equal(text.includes('bad key'), false);
   });
 });
+
+// A Word file whose first paragraphs are the lesson sample and the rest is filler, far over the token budget.
+async function longDocx(paragraphs) {
+  const { default: JSZip } = await import('jszip');
+  const escape = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const body = paragraphs.map(text => `<w:p><w:r><w:t xml:space="preserve">${escape(text)}</w:t></w:r></w:p>`).join('');
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`);
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+test('a document far over the budget builds from its start and the response says what was left out', async () => {
+  const sample = readFileSync(new URL('../../server/fixtures/sample-document.txt', import.meta.url), 'utf8');
+  const filler = Array.from({ length: 3000 }, (_, i) => `Filler paragraph ${i} about something unrelated to the lesson, repeated to make the file long.`);
+  const bytes = await longDocx([...sample.split(/\n+/).filter(Boolean), ...filler]);
+  await withServer(async base => {
+    const response = await upload(base, { prompt: goodPrompt, file: { name: 'long.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes } });
+    assert.equal(response.status, 200);
+    const built = await response.json();
+    assert.equal(built.steps.length > 0, true);
+    assert.equal(built.material.truncated, true);
+    assert.ok(built.material.usedPercent > 0 && built.material.usedPercent < 50);
+    assert.ok(built.material.estimatedTokens <= 4000);
+  });
+});

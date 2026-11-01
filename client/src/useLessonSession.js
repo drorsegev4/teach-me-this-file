@@ -26,6 +26,8 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   const [lesson, setLesson] = useState({ status: lessonId ? 'loading' : 'none', info: null });
   // The teacher's link for the lesson they built: { id } once published.
   const [published, setPublished] = useState(null);
+  // What part of the file the lesson was built from, as the server reported it.
+  const [material, setMaterial] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const controller = useRef(null);
@@ -89,6 +91,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setBuildError('');
     setPublished(null);
     setPublishError('');
+    setMaterial(null);
     setError('');
     setNotice('');
     setStoppedReply('');
@@ -97,6 +100,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     try {
       const built = await buildLesson({ file: next.file, prompt: fullGoal(next), apiKey: apiKey.trim(), sessionId });
       setFileName(built.fileName ?? '');
+      setMaterial(built.material ?? null);
       setBuilding(false);
       run({ type: 'start', fresh: false });
     } catch (failure) {
@@ -141,6 +145,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   function newLesson() {
     setChat(null);
     setBrief(null);
+    setMaterial(null);
     setPublished(null);
     setPublishError('');
     setBuildError('');
@@ -165,7 +170,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
 
   return {
     chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice,
-    openSource, setOpenSource, apiKey, fileName, lessonId, lesson, startLesson,
+    openSource, setOpenSource, apiKey, fileName, material, lessonId, lesson, startLesson,
     published, publishing, publishError, publish,
     brief, building, buildError, build, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };
