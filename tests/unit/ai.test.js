@@ -72,6 +72,11 @@ test('a 429 with a short Retry-After is retried once and then succeeds', async (
   assert.equal(result.steps.length, 1);
 });
 
+test('a 429 with a very long Retry-After says the allowance is used up, in minutes, with the way out', async () => {
+  const ai = createAI({ apiKey: 'k', fetchImpl: async () => rateLimited('1576') });
+  await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), error => /used its allowance/.test(error.message) && /about 27 minutes/.test(error.message) && /another Groq account/.test(error.message) && !/1576/.test(error.message));
+});
+
 test('a 429 with a long Retry-After is not retried and says how long to wait', async () => {
   let calls = 0;
   const ai = createAI({ apiKey: 'k', fetchImpl: async () => { calls += 1; return rateLimited('60'); } });

@@ -116,11 +116,21 @@ function retrying(fetchImpl) {
 }
 
 // Maps a Groq error status to a message the user can act on. The provider's body is never used.
+const LONG_WAIT_SECONDS = 120;
+
+// Under two minutes it is a busy moment: say how many seconds. Longer means the key's allowance is used up,
+// so give the wait in minutes and the two ways out.
+function rateLimitMessage(seconds) {
+  if (!seconds) return 'Groq is rate-limiting this key. Wait a minute and try again.';
+  if (seconds < LONG_WAIT_SECONDS) return `Groq is rate-limiting this key. Wait about ${seconds} seconds and try again.`;
+  const minutes = Math.ceil(seconds / 60);
+  return `This Groq key has used its allowance for now. Wait about ${minutes} minutes, or paste a key from another Groq account in Settings.`;
+}
+
 function providerFailure(response) {
   const { status } = response;
   if (status === 429) {
-    const wait = retryAfterSeconds(response);
-    return new ProviderError(`Groq is rate-limiting this key. Wait ${wait ? `about ${wait} seconds` : 'a minute'} and try again.`);
+    return new ProviderError(rateLimitMessage(retryAfterSeconds(response)));
   }
   if (status === 401) return new ProviderError('Groq rejected the API key. Check the Groq API key in Settings, then try again.');
   if (status === 413) return new ProviderError('The material is too large for one request. Use a shorter file.');
