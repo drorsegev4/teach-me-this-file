@@ -28,11 +28,13 @@ function upload(base, { prompt, file, part, headers = {} }) {
 
 const goodPrompt = 'Teach this to 7th graders, in French. Be Socratic.';
 
-test('build rejects a prompt under 20 characters', async () => {
+test('build rejects an empty goal but accepts a very short one', async () => {
   await withServer(async base => {
-    const response = await upload(base, { prompt: 'Too short', file: { name: 'a.txt', type: 'text/plain', bytes: 'hello' } });
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /20 to 1500 characters/);
+    const empty = await upload(base, { prompt: '   ', file: await sampleFile() });
+    assert.equal(empty.status, 400);
+    assert.match((await empty.json()).error, /up to 1500 characters/);
+    const short = await upload(base, { prompt: 'Teach this', file: await sampleFile() });
+    assert.equal(short.status, 200);
   });
 });
 

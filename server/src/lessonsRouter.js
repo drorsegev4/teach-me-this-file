@@ -8,14 +8,13 @@ import { PlanError } from './lessonPlan.js';
 import { DEFAULT_TOKEN_BUDGET, PartError, prepareMaterial } from './material.js';
 import { sessionKey } from './session.js';
 
-export const MIN_PROMPT_CHARS = 20;
 // The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
 export const MAX_PROMPT_CHARS = 1500;
 // Token budget for the material of one build. The default fits the free Groq key (about 8,000 tokens per minute).
 const materialBudget = Number(process.env.MATERIAL_TOKEN_BUDGET) || DEFAULT_TOKEN_BUDGET;
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 4 } });
-const buildPrompt = z.string().trim().min(MIN_PROMPT_CHARS).max(MAX_PROMPT_CHARS);
+const buildPrompt = z.string().trim().min(1).max(MAX_PROMPT_CHARS);
 // Which part of a long file to build the lesson from; the first when the field is missing.
 const buildPart = z.coerce.number().int().min(0).max(999).default(0);
 
@@ -37,7 +36,7 @@ export function createLessonsRouter({ store, chat, aiFor }) {
     return res.status(tooLarge ? 413 : 400).json({ error: tooLarge ? 'Choose a file up to 10 MB.' : 'Attach one PDF or DOCX file.' });
   }), async (req, res) => {
     const prompt = buildPrompt.safeParse(req.body?.prompt);
-    if (!prompt.success) return res.status(400).json({ error: `Write a lesson goal of ${MIN_PROMPT_CHARS} to ${MAX_PROMPT_CHARS} characters.` });
+    if (!prompt.success) return res.status(400).json({ error: `Write a lesson goal of up to ${MAX_PROMPT_CHARS} characters.` });
     const part = buildPart.safeParse(req.body?.part);
     if (!part.success) return res.status(400).json({ error: 'Choose a valid part of the file.' });
     let document;
