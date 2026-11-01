@@ -1,30 +1,54 @@
 const network = 'Cannot reach the server. Check that it is running, then try again.';
 
 // The reviewer's key goes in a header on each AI call. The server uses it for that call only.
-function keyHeaders(apiKey) {
-  return apiKey ? { 'X-Groq-Api-Key': apiKey } : {};
+// The session id picks which lesson state on the server a request belongs to.
+function headers({ apiKey, sessionId }) {
+  return { ...(apiKey ? { 'X-Groq-Api-Key': apiKey } : {}), ...(sessionId ? { 'X-Session-Id': sessionId } : {}) };
 }
 
-// Uploads one PDF or DOCX with the teacher's prompt. Resolves with the checked plan.
-export async function buildLesson({ file, prompt, apiKey }) {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('prompt', prompt);
+async function getJson(path, options, failure) {
   let response;
   try {
-    response = await fetch('/api/lessons/build', { method: 'POST', headers: keyHeaders(apiKey), body: form });
+    response = await fetch(path, options);
   } catch {
     throw new Error(network);
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Could not build the lesson. Try again.');
+  if (!response.ok) throw new Error(data.error || failure);
   return data;
 }
 
-export async function getChat() {
+// Uploads one PDF or DOCX with the teacher's prompt. Resolves with the checked plan.
+export function buildLesson({ file, prompt, apiKey, sessionId }) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('prompt', prompt);
+  return getJson('/api/lessons/build', { method: 'POST', headers: headers({ apiKey, sessionId }), body: form }, 'Could not build the lesson. Try again.');
+}
+
+// Saves the teacher's current lesson under a link id. Resolves with { id }.
+export function publishLesson({ sessionId }) {
+  return getJson('/api/lessons/publish', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers({ sessionId }) }, body: '{}' }, 'Could not publish. Try again.');
+}
+
+// What a student sees before starting a published lesson: its rules and step count.
+export function getLesson(id) {
+  return getJson(`/api/lessons/${encodeURIComponent(id)}`, undefined, 'This lesson link is not available. Ask your teacher for a new link.');
+}
+
+// Whether the host has its own Groq key, so a student does not need to paste one.
+export async function getHostKey() {
+  try {
+    return Boolean((await (await fetch('/api/health')).json()).hostKey);
+  } catch {
+    return false;
+  }
+}
+
+export async function getChat(sessionId) {
   let response;
   try {
-    response = await fetch('/api/chat');
+    response = await fetch('/api/chat', { headers: headers({ sessionId }) });
   } catch {
     throw new Error(network);
   }
@@ -35,12 +59,12 @@ export async function getChat() {
 
 // Sends one chat turn and reads the server-sent events. Resolves with the final lesson state.
 // Aborting the signal (Stop) rejects with an AbortError and the server commits nothing.
-export async function streamTurn(body, { onChunk, signal, apiKey }) {
+export async function streamTurn(body, { onChunk, signal, apiKey, sessionId }) {
   let response;
   try {
     response = await fetch('/api/chat/turn', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...keyHeaders(apiKey) },
+      headers: { 'Content-Type': 'application/json', ...headers({ apiKey, sessionId }) },
       body: JSON.stringify(body),
       signal,
     });

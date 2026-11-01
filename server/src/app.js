@@ -5,6 +5,7 @@ import { createAI, createMockAI } from './ai.js';
 import { createChatRouter, createChatService } from './chat.js';
 import { createDevRouter, devToolsEnabled } from './devTools.js';
 import { createLessonsRouter, createPlanStore } from './lessons.js';
+import { isValidSessionId, SESSION_HEADER } from './session.js';
 
 const clientDist = fileURLToPath(new URL('../../dist/', import.meta.url));
 export const KEY_HEADER = 'X-Groq-Api-Key';
@@ -37,10 +38,12 @@ export function createApp({ ai: injectedAI, devTools = devToolsEnabled() } = {})
     if (key && (key.trim().length > 200 || /\s/.test(key.trim()))) {
       return res.status(400).json({ error: 'That API key does not look valid. Check it in Settings and try again.' });
     }
+    const session = req.get(SESSION_HEADER);
+    if (session !== undefined && !isValidSessionId(session)) return res.status(400).json({ error: 'Invalid session. Reload the page.' });
     next();
   });
   app.use(express.json({ limit: '16kb' }));
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, hostKey: Boolean(process.env.GROQ_API_KEY) }));
   app.use('/api/lessons', createLessonsRouter({ store, chat, aiFor }));
   app.use('/api/chat', createChatRouter({ chat, aiFor }));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));

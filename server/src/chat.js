@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ProviderError } from './ai.js';
 import { PlanError } from './lessonPlan.js';
+import { DEFAULT_KEY, remember, sessionKey } from './session.js';
 
 export class ChatError extends Error {
   constructor(message, status) {
@@ -17,6 +18,8 @@ const stepId = index => `step-${index + 1}`;
 const FORCED_CHOICE_TURNS = 4;
 const COUNTED_STATUSES = ['keep_going', 'no_attempt'];
 
+const MAX_SESSIONS = 500;
+
 const freshProgress = () => ({ turns: 0, lastStatus: null, outcome: null });
 
 // Which tutor.md branch the reply follows, for the dev log. Mirrors the prompt's bullets; it does not affect the reply.
@@ -29,16 +32,17 @@ function tutorBranch(status, attempt) {
 // Student text is not logged.
 const debugTurns = process.env.DEV_TOOLS === '1' || process.env.NODE_ENV === 'development';
 
-// One lesson session in memory. A turn commits only after the tutor's full reply is ready, so a
+// Lesson sessions in memory, one per session id. A turn commits only after the tutor's full reply is ready, so a
 // stopped or failed reply leaves progress and history unchanged.
 // progress[stepId] keeps what the student did on each step, for review later:
 //   turns: counted turns on the step; lastStatus: the latest counted status;
 //   outcome: null while open, then understood | wrong | no_answer when the step is closed.
 export function createChatService({ ai, store }) {
-  let session = null;
-  let busy = false;
+  const sessions = new Map();
+  const busyKeys = new Set();
 
-  function view() {
+  function view(key = DEFAULT_KEY) {
+    const session = sessions.get(key);
     if (!session) return null;
     const { plan, index, messages, progress } = session;
     const ids = plan.steps.map((_, i) => stepId(i));
@@ -57,24 +61,33 @@ export function createChatService({ ai, store }) {
     };
   }
 
-  function reset() {
-    if (busy) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
-    session = null;
+  function reset(key = DEFAULT_KEY) {
+    if (busyKeys.has(key)) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
+    sessions.delete(key);
   }
 
-  async function turn({ type, text, fresh = false, ai: requestAI, onChunk = () => {}, signal }) {
+  // A student starts on a published plan; a teacher's preview starts on their own draft.
+  async function startingPlan({ key, lessonId, fresh, model }) {
+    if (!lessonId) return store.get({ key, fresh, ai: model });
+    const plan = store.getPublished(lessonId);
+    if (!plan) throw new ChatError('This lesson link is not available. Ask your teacher for a new link.', 404);
+    return plan;
+  }
+
+  async function turn({ key = DEFAULT_KEY, lessonId, type, text, fresh = false, ai: requestAI, onChunk = () => {}, signal }) {
     // The reviewer's key arrives per request; the service-level AI is a fallback for tests and tools.
     const model = requestAI ?? ai;
-    if (busy) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
+    if (busyKeys.has(key)) throw new ChatError('The tutor is still answering. Wait, or stop the reply first.', 409);
+    const session = sessions.get(key);
     if (type !== 'start' && (!session || session.index >= session.plan.steps.length)) {
       throw new ChatError('Start a lesson first.', 409);
     }
     if (type === 'move_on' && session.progress[stepId(session.index)].turns < FORCED_CHOICE_TURNS) {
       throw new ChatError('Move on is available after a few tries on this step.', 409);
     }
-    busy = true;
+    busyKeys.add(key);
     try {
-      const plan = type === 'start' ? await store.get({ fresh, ai: model }) : session.plan;
+      const plan = type === 'start' ? await startingPlan({ key, lessonId, fresh, model }) : session.plan;
       if (plan.error) throw new ChatError(plan.error, 422);
       // Work on copies; the session changes only at the end.
       const base = type === 'start'
@@ -100,8 +113,8 @@ export function createChatService({ ai, store }) {
           id: base.messages.length + 1, role: 'tutor', text: replyText, stepId: landing, quote: (nextStep ?? step).source,
           status: 'moved_on', attempt: record.turns,
         });
-        session = { ...base, plan };
-        return view();
+        remember(sessions, key, { ...base, plan }, MAX_SESSIONS);
+        return view(key);
       }
 
       const student = type === 'message' ? { id: base.messages.length + 1, role: 'student', text, stepId: id, quote: null } : null;
@@ -133,10 +146,10 @@ export function createChatService({ ai, store }) {
       if (student) base.messages.push(student);
       base.messages.push(tutor);
       if (advanced) base.index += 1;
-      session = { ...base, plan };
-      return view();
+      remember(sessions, key, { ...base, plan }, MAX_SESSIONS);
+      return view(key);
     } finally {
-      busy = false;
+      busyKeys.delete(key);
     }
   }
 
@@ -144,7 +157,7 @@ export function createChatService({ ai, store }) {
 }
 
 const turnBody = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('start'), fresh: z.boolean().optional() }).strict(),
+  z.object({ type: z.literal('start'), fresh: z.boolean().optional(), lessonId: z.string().regex(/^[\w-]{4,32}$/).optional() }).strict(),
   z.object({ type: z.literal('message'), text: z.string().trim().min(1).max(2000) }).strict(),
   z.object({ type: z.literal('move_on') }).strict(),
 ]);
@@ -154,8 +167,8 @@ const turnBody = z.discriminatedUnion('type', [
 export function createChatRouter({ chat, aiFor }) {
   const router = Router();
 
-  router.get('/', (_req, res) => {
-    const state = chat.view();
+  router.get('/', (req, res) => {
+    const state = chat.view(sessionKey(req));
     if (!state) return res.status(404).json({ error: 'No lesson has started yet.' });
     res.json(state);
   });
@@ -175,6 +188,7 @@ export function createChatRouter({ chat, aiFor }) {
     try {
       const state = await chat.turn({
         ...parsed.data,
+        key: sessionKey(req),
         ai: aiFor(req),
         onChunk: text => send('chunk', { text }),
         signal: controller.signal,

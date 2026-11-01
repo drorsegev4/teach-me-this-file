@@ -61,7 +61,7 @@ export default function LessonChat({ session }) {
 
     {chat?.lessonComplete && !streaming && <div className="mt-6 rounded-xl bg-teal-950 p-4 text-sm text-teal-100">
       <p>You finished every step.</p>
-      <button className="mt-3 w-full rounded-xl border border-teal-400 px-4 py-2 text-white" onClick={restartPreview}>Restart preview</button>
+      <button className="mt-3 w-full rounded-xl border border-teal-400 px-4 py-2 text-white" onClick={restartPreview}>{session.lessonId ? 'Start again' : 'Restart preview'}</button>
     </div>}
 
     {chat?.needsChoice && !streaming && !chat.lessonComplete && <div role="group" aria-label="Choose how to continue" className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 text-sm">

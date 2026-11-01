@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { buildLesson, getChat, streamTurn } from './api.js';
+import { buildLesson, getChat, getLesson, publishLesson, streamTurn } from './api.js';
 import { fullGoal } from './goalRules.js';
+import { storedSessionId } from './sessionId.js';
 
-// Owns the lesson session in the browser: the server's chat state, the streaming reply,
-// the student's draft, and the reviewer's key (memory only, never storage).
-export function useLessonSession() {
+// Owns one lesson session in the browser: the server's chat state, the streaming reply and the draft.
+// The reviewer's key lives in the app and is passed in (memory only, never storage).
+// With a lessonId it is a student's session on a published lesson; without, the teacher's own preview.
+export function useLessonSession({ apiKey, lessonId = null }) {
+  const [sessionId] = useState(() => storedSessionId(lessonId ? `student-${lessonId}` : 'teacher'));
   const [chat, setChat] = useState(null);
   const [partial, setPartial] = useState('');
   const [pending, setPending] = useState(null);
@@ -13,19 +16,29 @@ export function useLessonSession() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [openSource, setOpenSource] = useState(null);
-  const [apiKey, setApiKey] = useState('');
   const [fileName, setFileName] = useState('');
   // What the teacher submitted ({ file, prompt }), kept so the lesson can be rebuilt from an edited goal.
   const [brief, setBrief] = useState(null);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState('');
   const [stoppedReply, setStoppedReply] = useState('');
+  // A student's view of the published lesson: loading, ready (with its rules and step count) or missing.
+  const [lesson, setLesson] = useState({ status: lessonId ? 'loading' : 'none', info: null });
+  // The teacher's link for the lesson they built: { id } once published.
+  const [published, setPublished] = useState(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
   const controller = useRef(null);
   const partialText = useRef('');
 
   useEffect(() => {
-    getChat().then(setChat).catch(failure => setError(failure.message));
-  }, []);
+    getChat(sessionId).then(setChat).catch(failure => setError(failure.message));
+    if (lessonId) {
+      getLesson(lessonId)
+        .then(info => setLesson({ status: 'ready', info }))
+        .catch(failure => setLesson({ status: 'missing', info: null, message: failure.message }));
+    }
+  }, [sessionId, lessonId]);
 
   async function run(body, { onStart } = {}) {
     controller.current = new AbortController();
@@ -44,6 +57,7 @@ export function useLessonSession() {
         },
         signal: controller.current.signal,
         apiKey: apiKey.trim(),
+        sessionId,
       });
       setChat(state);
       setPartial('');
@@ -73,13 +87,15 @@ export function useLessonSession() {
     setBrief(next);
     setBuilding(true);
     setBuildError('');
+    setPublished(null);
+    setPublishError('');
     setError('');
     setNotice('');
     setStoppedReply('');
     setOpenSource(null);
     setChat(null);
     try {
-      const built = await buildLesson({ file: next.file, prompt: fullGoal(next), apiKey: apiKey.trim() });
+      const built = await buildLesson({ file: next.file, prompt: fullGoal(next), apiKey: apiKey.trim(), sessionId });
       setFileName(built.fileName ?? '');
       setBuilding(false);
       run({ type: 'start', fresh: false });
@@ -94,18 +110,39 @@ export function useLessonSession() {
     if (brief) build({ ...brief, changes: [...brief.changes, text] });
   }
 
+  // The student presses Start on the landing card.
+  function startLesson() {
+    if (!streaming) run({ type: 'start', lessonId });
+  }
+
+  // The teacher saves the lesson they built under a link.
+  async function publish() {
+    if (publishing || building || streaming) return;
+    setPublishing(true);
+    setPublishError('');
+    try {
+      setPublished(await publishLesson({ sessionId }));
+    } catch (failure) {
+      setPublishError(failure.message);
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   // Starts the student preview over on the same lesson plan.
   function restartPreview() {
     if (streaming || building) return;
     setChat(null);
     setStoppedReply('');
     setOpenSource(null);
-    run({ type: 'start', fresh: false });
+    run(lessonId ? { type: 'start', lessonId } : { type: 'start', fresh: false });
   }
 
   function newLesson() {
     setChat(null);
     setBrief(null);
+    setPublished(null);
+    setPublishError('');
     setBuildError('');
     setError('');
     setNotice('');
@@ -128,7 +165,8 @@ export function useLessonSession() {
 
   return {
     chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice,
-    openSource, setOpenSource, apiKey, setApiKey, fileName,
+    openSource, setOpenSource, apiKey, fileName, lessonId, lesson, startLesson,
+    published, publishing, publishError, publish,
     brief, building, buildError, build, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };
 }

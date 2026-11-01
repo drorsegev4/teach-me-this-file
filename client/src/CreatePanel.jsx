@@ -4,9 +4,19 @@ import KeySettings from './KeySettings.jsx';
 
 // The teacher's side. Top: the lesson plan, with the source quote behind each step.
 // Below: the conversation with the builder (the goal, then each change asked for), and a box at the bottom for the next change.
-export default function CreatePanel({ session }) {
-  const { chat, brief, building, buildError, streaming, fileName, apiKey, setApiKey, build, requestChange, newLesson } = session;
+export default function CreatePanel({ session, onOpenStudent }) {
+  const { chat, brief, building, buildError, streaming, fileName, apiKey, setApiKey, build, requestChange, newLesson, published, publishing, publishError, publish } = session;
   const [draft, setDraft] = useState('');
+  const [copied, setCopied] = useState(false);
+  const link = published ? `${window.location.origin}/l/${published.id}` : '';
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard can be blocked; the link is shown to copy by hand */ }
+  }
 
   const steps = chat?.steps ?? [];
   const busy = building || streaming;
@@ -28,7 +38,21 @@ export default function CreatePanel({ session }) {
     </header>
 
     <section aria-label="Lesson plan" className="max-h-[40vh] shrink-0 overflow-y-auto border-b border-stone-200 bg-white px-4 py-4">
-      <h2 className="text-sm font-semibold">Lesson plan</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">Lesson plan</h2>
+        {steps.length > 0 && !published && <button type="button" disabled={busy || publishing} onClick={publish}
+          className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-medium text-white disabled:bg-stone-300">{publishing ? 'Publishing…' : 'Publish for students'}</button>}
+      </div>
+      {published && <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-xs">
+        <p className="font-medium text-teal-900">Published. Share this link with students:</p>
+        <p dir="ltr" className="mt-1 break-all rounded-lg bg-white px-2 py-1.5 font-mono text-stone-700">{link}</p>
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={copy} className="rounded-lg border border-teal-700 px-3 py-1.5 text-teal-900">{copied ? 'Copied' : 'Copy link'}</button>
+          <button type="button" onClick={() => onOpenStudent(published.id)} className="rounded-lg bg-teal-700 px-3 py-1.5 text-white">Open as student</button>
+        </div>
+        <p className="mt-2 text-stone-600">Students see the lesson only, not your goal or plan. Changing the lesson later needs a new Publish and a new link.</p>
+      </div>}
+      {publishError && <p role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs">{publishError}</p>}
       {building && <p role="status" className="mt-2 flex items-center gap-3 text-sm text-stone-700">
         <span aria-hidden="true" className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-teal-700 border-t-transparent" />
         Generating your lesson…
@@ -77,7 +101,8 @@ export default function CreatePanel({ session }) {
         <button className="mt-2 underline disabled:opacity-50" disabled={busy} onClick={() => build(brief)}>Try again</button>
       </div>}
       {!building && !buildError && steps.length > 0 && <p className="text-sm text-stone-600">Your lesson is ready: {steps.length} steps. Try it in the student preview, or ask for a change below.</p>}
-      <KeySettings apiKey={apiKey} onKeyChange={setApiKey} disabled={busy} />
+      <KeySettings apiKey={apiKey} onKeyChange={setApiKey} disabled={busy} open={Boolean(buildError)}
+        onApply={buildError && brief ? () => build(brief) : undefined} applyLabel="Use this key and try again" />
     </div>
 
     <form onSubmit={send} className="border-t border-stone-200 bg-[#faf9f6] p-3">
