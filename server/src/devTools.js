@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { z } from 'zod';
-import { ChatError, createChatService } from './chat.js';
+import { ChatError, createChatService } from './chatService.js';
 import { PROMPT_NAMES, ProviderError, readPrompt, writePrompt } from './ai.js';
 import { generateLessonPlan, PlanError } from './lessonPlan.js';
 import { sampleText, sampleTeacherPrompt } from './sample.js';

@@ -1,65 +1,18 @@
-import { randomBytes } from 'node:crypto';
 import multer from 'multer';
 import { Router } from 'express';
 import { z } from 'zod';
-import { ChatError } from './chat.js';
+import { ChatError } from './chatService.js';
 import { ProviderError } from './ai.js';
 import { extractDocument, MAX_FILE_BYTES } from './documents.js';
-import { generateLessonPlan, PlanError } from './lessonPlan.js';
+import { PlanError } from './lessonPlan.js';
 import { DEFAULT_TOKEN_BUDGET, prepareMaterial } from './material.js';
-import { DEFAULT_KEY, remember, sessionKey } from './session.js';
+import { sessionKey } from './session.js';
 
 export const MIN_PROMPT_CHARS = 20;
 // The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
 export const MAX_PROMPT_CHARS = 1500;
 // Token budget for the material of one build. The default fits the free Groq key (about 8,000 tokens per minute).
 const materialBudget = Number(process.env.MATERIAL_TOKEN_BUDGET) || DEFAULT_TOKEN_BUDGET;
-
-const MAX_DRAFTS = 200;
-const MAX_PUBLISHED = 100;
-
-// Each session has its own draft plan; a draft is shared by that session's requests until a new one is built.
-// Concurrent requests await the same promise, so a double click makes one model call.
-// Publishing copies the draft plan under a link id, so later rebuilds do not change what students see.
-export function createPlanStore({ ai: defaultAI } = {}) {
-  const drafts = new Map();
-  const published = new Map();
-
-  function generate(key, model, { text, teacherPrompt }) {
-    const attempt = generateLessonPlan({ ai: model, text, teacherPrompt })
-      .then(plan => (plan.error ? { error: plan.error } : { rules: plan.rules, steps: plan.steps }));
-    const entry = { attempt, publishedId: null };
-    remember(drafts, key, entry, MAX_DRAFTS);
-    // Failed or refused plans are not kept, so the next request tries again.
-    const forget = () => { if (drafts.get(key) === entry) drafts.delete(key); };
-    attempt.then(plan => { if (plan.error) forget(); }, forget);
-    return attempt;
-  }
-
-  return {
-    // The session's current draft plan, or null when nothing has been built.
-    getDraft(key = DEFAULT_KEY) {
-      return drafts.get(key)?.attempt ?? null;
-    },
-    build({ key = DEFAULT_KEY, ai = defaultAI, text, teacherPrompt }) {
-      return generate(key, ai, { text, teacherPrompt });
-    },
-    // Returns the link id for the session's current draft, or null when there is no usable draft.
-    async publish({ key = DEFAULT_KEY } = {}) {
-      const entry = drafts.get(key);
-      const plan = entry && await entry.attempt;
-      if (!plan || plan.error) return null;
-      if (!entry.publishedId) {
-        entry.publishedId = randomBytes(6).toString('base64url');
-        remember(published, entry.publishedId, plan, MAX_PUBLISHED);
-      }
-      return entry.publishedId;
-    },
-    getPublished(id) {
-      return published.get(id) ?? null;
-    },
-  };
-}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 4 } });
 const buildPrompt = z.string().trim().min(MIN_PROMPT_CHARS).max(MAX_PROMPT_CHARS);

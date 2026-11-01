@@ -2,9 +2,11 @@ import express from 'express';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createAI, createMockAI } from './ai.js';
-import { createChatRouter, createChatService } from './chat.js';
+import { createChatRouter } from './chatRouter.js';
+import { createChatService } from './chatService.js';
 import { createDevRouter, devToolsEnabled } from './devTools.js';
-import { createLessonsRouter, createPlanStore } from './lessons.js';
+import { createLessonsRouter } from './lessonsRouter.js';
+import { createPlanStore } from './planStore.js';
 import { isValidSessionId, SESSION_HEADER } from './session.js';
 
 const clientDist = fileURLToPath(new URL('../../dist/', import.meta.url));

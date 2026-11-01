@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createApp } from '../../server/src/app.js';
 import { createMockAI } from '../../server/src/ai.js';
-import { createChatService, ChatError } from '../../server/src/chat.js';
+import { createChatService, ChatError } from '../../server/src/chatService.js';
 import { buildDraft } from './helpers/draft.js';
 
 const plan = JSON.parse(readFileSync(new URL('../../server/fixtures/mock-lesson-plan.json', import.meta.url), 'utf8'));
