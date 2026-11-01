@@ -18,6 +18,19 @@ const buildPrompt = z.string().trim().min(1).max(MAX_PROMPT_CHARS);
 // Which part of a long file to build the lesson from; the first when the field is missing.
 const buildPart = z.coerce.number().int().min(0).max(999).default(0);
 
+const THIN_TEXT_WORDS = 150;
+
+// A refusal reads better with the facts about the file: how little text was readable and which pages had none.
+function refusalMessage(reason, document, text) {
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const unreadablePages = document.warnings.find(warning => warning.startsWith('No readable text on PDF pages'));
+  const notes = [];
+  if (words < THIN_TEXT_WORDS) notes.push(`Only about ${words} words could be read from this file.`);
+  if (unreadablePages) notes.push(unreadablePages);
+  if (notes.length) notes.push('Images, scans, formulas and matrices are not read; a file with ordinary text works best.');
+  return [reason, ...notes].join(' ');
+}
+
 function sendFailure(res, error) {
   if (error instanceof ChatError) return res.status(error.status).json({ error: error.message });
   if (error instanceof PlanError) return res.status(502).json({ error: 'The lesson plan did not pass the source check. Try again.' });
@@ -58,7 +71,7 @@ export function createLessonsRouter({ store, chat, aiFor }) {
     try {
       chat.reset(sessionKey(req));
       const plan = await store.build({ key: sessionKey(req), ai: aiFor(req), text, teacherPrompt: prompt.data });
-      if (plan.error) return res.status(422).json({ error: plan.error });
+      if (plan.error) return res.status(422).json({ error: refusalMessage(plan.error, document, text) });
       res.json({ ...plan, fileName: document.name, warnings: document.warnings, material: notice });
     } catch (error) {
       sendFailure(res, error);

@@ -130,11 +130,23 @@ test('a provider failure on build is reported without leaking details', async ()
   }, ai);
 });
 
+test('a refusal on a file with almost no readable text says how little was read', async () => {
+  const refusal = { rules: savedPlan.rules, steps: [], error: 'The material has nothing to teach.' };
+  await withServer(async base => {
+    const bytes = await makeDocx(['Exercise 1', 'Given the matrices']);
+    const response = await upload(base, { prompt: goodPrompt, file: { name: 'exercise.docx', type: docxType, bytes } });
+    assert.equal(response.status, 422);
+    const { error } = await response.json();
+    assert.match(error, /^The material has nothing to teach\. Only about 5 words could be read from this file\./);
+    assert.match(error, /formulas and matrices are not read/);
+  }, createMockAI(refusal));
+});
+
 test('a plan the model refuses is reported with its reason', async () => {
   const refusal = { rules: savedPlan.rules, steps: [], error: 'The file has no teachable text.' };
   await withServer(async base => {
     const response = await upload(base, { prompt: goodPrompt, file: await sampleFile() });
     assert.equal(response.status, 422);
-    assert.deepEqual(await response.json(), { error: 'The file has no teachable text.' });
+    assert.match((await response.json()).error, /^The file has no teachable text./);
   }, createMockAI(refusal));
 });

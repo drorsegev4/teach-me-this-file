@@ -14,9 +14,10 @@ Rules object:
 
 Steps:
 - Write 3 to 7 steps, one idea per step, from simple to complex.
-- Every step has a source: an exact quote copied from the material. Aim for one short sentence of 10 to 20 words; the limit is 25 words, and a longer quote is rejected. Punctuation may differ, but every word must match in order. Never paraphrase or invent a quote.
+- Every step has a source: an exact quote copied from the material, in the material's own language, even when the lesson is taught in another language. Aim for one short sentence of 10 to 20 words; a shorter exact line is fine when the material has no longer sentences. The limit is 25 words, and a longer quote is rejected. Punctuation may differ, but every word must match in order. Never paraphrase, translate or invent a quote.
+- Step titles and everything else you write follow the lesson language, not the material's.
 - No two steps may use the same quote.
-- Step titles are 8 words or fewer, in the lesson language.
+- Step titles are 8 words or fewer.
 
 If the material has nothing to teach, set error to one sentence saying why, and leave steps empty.
 
