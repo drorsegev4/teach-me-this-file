@@ -7,6 +7,9 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ['pdf', 'docx'];
 // A fixed example of a good goal: audience, language, method, checking and time. It works with any file, and the teacher edits it.
 const EXAMPLE_GOAL = 'Teach this file to 7th grade students, in English. Be Socratic. Check understanding after each step. Keep it under 15 minutes.';
+// The parts of the example that are the teacher's to decide. They are painted light green wherever they appear in the box.
+const CHOICES = ['7th grade', 'English', 'Socratic', '15 minutes'];
+const CHOICES_PATTERN = new RegExp(`(${CHOICES.join('|')})`);
 
 function formatSize(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -29,6 +32,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
   const [error, setError] = useState('');
   const input = useRef(null);
   const goal = useRef(null);
+  const backdrop = useRef(null);
 
   // The goal box grows with the text, up to a limit, so long goals stay visible.
   useEffect(() => {
@@ -37,6 +41,13 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
     field.style.height = 'auto';
     field.style.height = `${Math.min(field.scrollHeight, 320)}px`;
   }, [prompt]);
+
+  // The goal is drawn twice: the real textarea has transparent text, and this copy behind it paints the choices light green.
+  const parts = prompt.split(CHOICES_PATTERN);
+  const hasChoices = parts.length > 1;
+  const highlighted = parts.map((part, index) => (index % 2
+    ? <mark key={index} className="rounded bg-emerald-100 text-emerald-900">{part}</mark>
+    : part));
 
   const reason = !file ? 'Add a .docx or .pdf file to continue.' : goalProblem(prompt);
   const canBuild = !reason;
@@ -82,9 +93,14 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
         onDragLeave={() => setDragging(false)}
         onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
         className={`mt-8 rounded-3xl border bg-white shadow-lg transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10 ${dragging ? 'border-teal-600 bg-teal-50/40' : 'border-stone-300'}`}>
-        <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
-          placeholder={EXAMPLE_GOAL} aria-describedby="goal-help goal-hint"
-          className="block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
+        <div className="relative">
+          <div ref={backdrop} aria-hidden="true" dir="auto"
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-5 pt-5 text-base leading-7 text-stone-900 sm:text-lg">{highlighted}{'\n'}</div>
+          <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
+            onScroll={event => { if (backdrop.current) backdrop.current.scrollTop = event.target.scrollTop; }}
+            placeholder={EXAMPLE_GOAL} aria-describedby="goal-help goal-hint"
+            className="relative block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 text-transparent caret-stone-900 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
+        </div>
 
         {file && <div className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-2xl bg-stone-100 px-4 py-2 text-sm">
           <p dir="auto" className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
@@ -112,6 +128,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
         onChange={event => { pick(event.target.files[0]); event.target.value = ''; }} />
 
       <p id="goal-help" className="mt-3 text-center text-sm text-stone-600" role="status">{reason}</p>
+      {hasChoices && <p className="mt-1 text-center text-xs text-stone-500">The <mark className="rounded bg-emerald-100 px-1 text-emerald-900">green</mark> parts are yours to decide. Change them to fit your class.</p>}
 
       {!prompt.trim() && <div className="mt-4 text-center">
         <button type="button" title={EXAMPLE_GOAL} onClick={useExample}
