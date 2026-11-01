@@ -181,3 +181,46 @@ test('streams chunks and ends with the full state over HTTP', async () => {
     server.close();
   }
 });
+
+test('typing after the choice re-asks from rung 3 and shows the choice again only after another try', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  for (let i = 0; i < 4; i++) await chat.turn({ type: 'message', text: keepGoing });
+  let state = await chat.turn({ type: 'message', text: keepGoing });
+  assert.equal(state.messages.at(-1).attempt, 3);
+  assert.equal(state.needsChoice, false);
+  state = await chat.turn({ type: 'message', text: keepGoing });
+  assert.equal(state.messages.at(-1).attempt, 4);
+  assert.equal(state.needsChoice, true);
+});
+
+test('stopping a reply over HTTP aborts it and leaves the lesson state unchanged', async () => {
+  const ai = createMockAI(plan, { delayMs: 40 });
+  const server = createApp({ ai }).listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api/chat`;
+  const post = (body, signal) => fetch(`${base}/turn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+  try {
+    await (await post({ type: 'start' })).text();
+    await (await post({ type: 'message', text: keepGoing })).text();
+    const before = await (await fetch(base)).json();
+
+    const controller = new AbortController();
+    const response = await post({ type: 'message', text: keepGoing }, controller.signal);
+    const reader = response.body.getReader();
+    await reader.read();
+    controller.abort();
+    await assert.rejects(reader.read(), { name: 'AbortError' });
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const after = await (await fetch(base)).json();
+    assert.deepEqual(after.attemptsPerStep, before.attemptsPerStep);
+    assert.equal(after.messages.length, before.messages.length);
+    assert.equal(after.currentStepId, before.currentStepId);
+
+    const next = await (await post({ type: 'message', text: understood })).text();
+    assert.match(next, /event: done/);
+  } finally {
+    server.close();
+  }
+});

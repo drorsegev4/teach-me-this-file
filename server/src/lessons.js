@@ -11,7 +11,8 @@ import { generateLessonPlan, PlanError } from './lessonPlan.js';
 export const sampleText = readFileSync(new URL('../fixtures/sample-document.txt', import.meta.url), 'utf8');
 export const sampleTeacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 export const MIN_PROMPT_CHARS = 20;
-export const MAX_PROMPT_CHARS = 500;
+// The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
+export const MAX_PROMPT_CHARS = 1500;
 // A conservative guess below the size that failed with Groq 413. Not yet tuned against Groq's exact limit.
 export const MAX_MATERIAL_CHARS = 12000;
 

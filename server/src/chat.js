@@ -45,7 +45,7 @@ export function createChatService({ ai, store }) {
     const current = index < plan.steps.length ? progress[stepId(index)] : null;
     return {
       rules: plan.rules,
-      steps: plan.steps.map((step, i) => ({ id: stepId(i), title: step.title })),
+      steps: plan.steps.map((step, i) => ({ id: stepId(i), title: step.title, source: step.source })),
       currentStepId: index < plan.steps.length ? stepId(index) : null,
       completedStepIds: ids.filter(id => progress[id].outcome === 'understood'),
       movedOnStepIds: ids.filter(id => progress[id].outcome === 'wrong' || progress[id].outcome === 'no_answer'),
@@ -108,6 +108,9 @@ export function createChatService({ ai, store }) {
       const check = type === 'message' ? await model.classify({ rules: plan.rules, step, history, studentText: text }) : { status: 'open' };
 
       if (COUNTED_STATUSES.includes(check.status)) {
+        // Typing after the choice means "try again". Re-ask from rung 3 so the choice does not repeat
+        // until the student has answered at least once more.
+        if (record.turns >= FORCED_CHOICE_TURNS) record.turns = FORCED_CHOICE_TURNS - 2;
         record.turns += 1;
         record.lastStatus = check.status;
       }

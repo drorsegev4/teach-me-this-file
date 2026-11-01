@@ -29,7 +29,7 @@ test('build rejects a prompt under 20 characters', async () => {
   await withServer(async base => {
     const response = await upload(base, { prompt: 'Too short', file: { name: 'a.txt', type: 'text/plain', bytes: 'hello' } });
     assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /20 to 500 characters/);
+    assert.match((await response.json()).error, /20 to 1500 characters/);
   });
 });
 

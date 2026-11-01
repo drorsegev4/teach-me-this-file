@@ -41,7 +41,8 @@ test('returns a safe error and never the provider body on HTTP failure', async (
   const ai = createAI({ apiKey: 'bad', fetchImpl });
   await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), error => {
     assert.ok(error instanceof ProviderError);
-    assert.equal(error.message, 'Groq request failed (401).');
+    assert.match(error.message, /rejected the API key/);
+    assert.ok(!error.message.includes('secret'));
     return true;
   });
 });
@@ -50,4 +51,11 @@ test('rejects a truncated response', async () => {
   const { fetchImpl } = fakeFetch(200, { choices: [{ finish_reason: 'length', message: { content: '{' } }] });
   const ai = createAI({ apiKey: 'k', fetchImpl });
   await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), ProviderError);
+});
+
+test('a 401 from Groq says the key was rejected and never echoes the provider body', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({ error: { message: 'Invalid API Key sk-secret' } }), { status: 401 });
+  const ai = createAI({ apiKey: 'sk-secret', fetchImpl });
+  await assert.rejects(ai.classify({ studentText: 'x' }), error => /rejected the API key/.test(error.message) && !error.message.includes('sk-secret'));
+  await assert.rejects(ai.replyStream({ rules: {}, step: { title: 't', source: 's' }, onChunk() {} }), error => /rejected the API key/.test(error.message));
 });

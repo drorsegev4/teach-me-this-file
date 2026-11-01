@@ -88,6 +88,13 @@ function pause(ms, signal) {
   });
 }
 
+// Maps a Groq error status to a message the user can act on. The provider's body is never used.
+function providerFailure(status) {
+  if (status === 401) return new ProviderError('Groq rejected the API key. Check the Groq API key in Settings on the first screen, then try again.');
+  if (status === 413) return new ProviderError('The material is too large for one request. Use a shorter file.');
+  return new ProviderError(`Groq request failed (${status}).`);
+}
+
 function requireKey(apiKey) {
   if (!apiKey) throw new ProviderError('Set GROQ_API_KEY in your local .env file, then restart the server.');
 }
@@ -114,8 +121,7 @@ async function callStructured({ apiKey, fetchImpl, name, instructions, input, sc
   }
   if (!response.ok) {
     // Never return or log the provider body; it may echo request data.
-    if (response.status === 413) throw new ProviderError('The material is too large for one request. Use a shorter file.');
-    throw new ProviderError(`Groq request failed (${response.status}).`);
+    throw providerFailure(response.status);
   }
   const payload = await response.json();
   const choice = payload.choices?.[0];
@@ -148,7 +154,7 @@ async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextSt
     if (signal?.aborted) throw error;
     throw new ProviderError('Groq could not be reached or timed out. Retry.');
   }
-  if (!response.ok) throw new ProviderError(`Groq request failed (${response.status}).`);
+  if (!response.ok) throw providerFailure(response.status);
 
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
