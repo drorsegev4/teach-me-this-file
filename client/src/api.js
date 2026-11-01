@@ -18,11 +18,12 @@ async function getJson(path, options, failure) {
   return data;
 }
 
-// Uploads one PDF or DOCX with the teacher's prompt. Resolves with the checked plan.
-export function buildLesson({ file, prompt, apiKey, sessionId }) {
+// Uploads one PDF or DOCX with the teacher's prompt, and which part of a long file to use. Resolves with the checked plan.
+export function buildLesson({ file, prompt, part = 0, apiKey, sessionId }) {
   const form = new FormData();
   form.append('file', file);
   form.append('prompt', prompt);
+  form.append('part', String(part));
   return getJson('/api/lessons/build', { method: 'POST', headers: headers({ apiKey, sessionId }), body: form }, 'Could not build the lesson. Try again.');
 }
 

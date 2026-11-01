@@ -18,9 +18,10 @@ async function withServer(run, ai = createMockAI(savedPlan)) {
   }
 }
 
-function upload(base, { prompt, file, headers = {} }) {
+function upload(base, { prompt, file, part, headers = {} }) {
   const form = new FormData();
   if (prompt !== undefined) form.append('prompt', prompt);
+  if (part !== undefined) form.append('part', String(part));
   if (file) form.append('file', new Blob([file.bytes], { type: file.type }), file.name);
   return fetch(`${base}/api/lessons/build`, { method: 'POST', headers, body: form });
 }
@@ -59,19 +60,60 @@ test('rejects a malformed API key header without echoing it', async () => {
   });
 });
 
-test('a document far over the budget builds from its start and the response says what was left out', async () => {
-  const sample = readFileSync(new URL('../../server/fixtures/sample-document.txt', import.meta.url), 'utf8');
+// A model stand-in that builds a plan from the text it is given, so each part gets a plan quoted from that part.
+function planFromText() {
+  const seen = [];
+  return {
+    seen,
+    async planLesson({ text }) {
+      seen.push(text);
+      const quotes = text.split('\n').filter(line => line.split(/\s+/).length >= 6).slice(0, 3);
+      return { rules: savedPlan.rules, steps: quotes.map((source, index) => ({ title: `Step ${index + 1}`, source })), error: null };
+    },
+  };
+}
+
+async function longFile() {
   const filler = Array.from({ length: 3000 }, (_, i) => `Filler paragraph ${i} about something unrelated to the lesson, repeated to make the file long.`);
-  const bytes = await makeDocx([...sample.split(/\n+/).filter(Boolean), ...filler]);
+  const bytes = await makeDocx(filler);
+  return { name: 'long.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes };
+}
+
+test('a long document is split into parts, and the first part builds a lesson with the list of parts', async () => {
+  const ai = planFromText();
   await withServer(async base => {
-    const response = await upload(base, { prompt: goodPrompt, file: { name: 'long.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes } });
+    const response = await upload(base, { prompt: goodPrompt, file: await longFile() });
     assert.equal(response.status, 200);
     const built = await response.json();
-    assert.equal(built.steps.length > 0, true);
-    assert.equal(built.material.truncated, true);
-    assert.ok(built.material.usedPercent > 0 && built.material.usedPercent < 50);
+    assert.equal(built.steps.length, 3);
+    assert.ok(built.material.partCount > 1);
+    assert.equal(built.material.partIndex, 0);
+    assert.equal(built.material.parts.length, built.material.partCount);
     assert.ok(built.material.estimatedTokens <= 4000);
-  });
+  }, ai);
+});
+
+test('choosing another part builds the lesson from that part of the file', async () => {
+  const ai = planFromText();
+  await withServer(async base => {
+    const file = await longFile();
+    const first = await (await upload(base, { prompt: goodPrompt, file })).json();
+    const second = await (await upload(base, { prompt: goodPrompt, file, part: 1 })).json();
+    assert.equal(second.material.partIndex, 1);
+    assert.equal(second.material.partCount, first.material.partCount);
+    assert.notEqual(ai.seen[0], ai.seen[1]);
+    assert.ok(!ai.seen[1].includes(ai.seen[0].split('\n')[0]));
+    assert.notEqual(second.steps[0].source, first.steps[0].source);
+  }, ai);
+});
+
+test('a part that does not exist is refused with how many parts there are', async () => {
+  await withServer(async base => {
+    const response = await upload(base, { prompt: goodPrompt, file: await longFile(), part: 999 });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /This file has \d+ parts\. Choose one of them\./);
+    assert.equal((await upload(base, { prompt: goodPrompt, file: await longFile(), part: 'abc' })).status, 400);
+  }, planFromText());
 });
 
 const docxType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

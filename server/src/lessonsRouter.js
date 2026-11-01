@@ -5,7 +5,7 @@ import { ChatError } from './chatService.js';
 import { ProviderError } from './ai.js';
 import { extractDocument, MAX_FILE_BYTES } from './documents.js';
 import { PlanError } from './lessonPlan.js';
-import { DEFAULT_TOKEN_BUDGET, prepareMaterial } from './material.js';
+import { DEFAULT_TOKEN_BUDGET, PartError, prepareMaterial } from './material.js';
 import { sessionKey } from './session.js';
 
 export const MIN_PROMPT_CHARS = 20;
@@ -16,6 +16,8 @@ const materialBudget = Number(process.env.MATERIAL_TOKEN_BUDGET) || DEFAULT_TOKE
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 4 } });
 const buildPrompt = z.string().trim().min(MIN_PROMPT_CHARS).max(MAX_PROMPT_CHARS);
+// Which part of a long file to build the lesson from; the first when the field is missing.
+const buildPart = z.coerce.number().int().min(0).max(999).default(0);
 
 function sendFailure(res, error) {
   if (error instanceof ChatError) return res.status(error.status).json({ error: error.message });
@@ -36,6 +38,8 @@ export function createLessonsRouter({ store, chat, aiFor }) {
   }), async (req, res) => {
     const prompt = buildPrompt.safeParse(req.body?.prompt);
     if (!prompt.success) return res.status(400).json({ error: `Write a lesson goal of ${MIN_PROMPT_CHARS} to ${MAX_PROMPT_CHARS} characters.` });
+    const part = buildPart.safeParse(req.body?.part);
+    if (!part.success) return res.status(400).json({ error: 'Choose a valid part of the file.' });
     let document;
     try {
       document = await extractDocument(req.file);
@@ -43,8 +47,15 @@ export function createLessonsRouter({ store, chat, aiFor }) {
       // The reader writes user-facing messages for bad files (wrong type, scanned, too long).
       return res.status(400).json({ error: error.message });
     }
-    // The lesson is built from the start of the document that fits one request; the notice says what was left out.
-    const { text, notice } = prepareMaterial(document, { budget: materialBudget });
+    // A long file is split into parts that each fit one request; the lesson is built from the chosen part.
+    let prepared;
+    try {
+      prepared = prepareMaterial(document, { budget: materialBudget, part: part.data });
+    } catch (error) {
+      if (error instanceof PartError) return res.status(400).json({ error: error.message });
+      throw error;
+    }
+    const { text, notice } = prepared;
     try {
       chat.reset(sessionKey(req));
       const plan = await store.build({ key: sessionKey(req), ai: aiFor(req), text, teacherPrompt: prompt.data });

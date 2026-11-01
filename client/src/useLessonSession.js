@@ -85,9 +85,9 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   }
 
   // Builds the lesson from the teacher's file and goal, then opens it as a fresh student preview.
-  async function build({ changes = [], ...rest }) {
+  async function build({ changes = [], part = 0, ...rest }) {
     if (building || streaming) return;
-    const next = { ...rest, changes };
+    const next = { ...rest, changes, part };
     setBrief(next);
     setBuilding(true);
     setBuildError('');
@@ -101,7 +101,7 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setOpenSource(null);
     setChat(null);
     try {
-      const built = await buildLesson({ file: next.file, prompt: fullGoal(next), apiKey: apiKey.trim(), sessionId });
+      const built = await buildLesson({ file: next.file, prompt: fullGoal(next), part: next.part, apiKey: apiKey.trim(), sessionId });
       setFileName(built.fileName ?? '');
       setMaterial(built.material ?? null);
       setPlan({ rules: built.rules, steps: built.steps });
@@ -116,6 +116,11 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   // The teacher asks for a change to the lesson. The file and goal stay; the change is added and the lesson is rebuilt.
   function requestChange(text) {
     if (brief) build({ ...brief, changes: [...brief.changes, text] });
+  }
+
+  // The teacher picks another part of a long file; the goal and change requests stay.
+  function choosePart(part) {
+    if (brief) build({ ...brief, part });
   }
 
   // The student presses Start on the landing card.
@@ -177,6 +182,6 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice,
     openSource, setOpenSource, apiKey, fileName, material, plan, lessonId, lesson, startLesson,
     published, publishing, publishError, publish,
-    brief, building, buildError, build, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
+    brief, building, buildError, build, choosePart, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };
 }

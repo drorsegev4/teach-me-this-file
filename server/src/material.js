@@ -1,7 +1,7 @@
-// Turns an extracted document into the material one model call can read, and says what was left out.
-// The free Groq key allows about 8,000 tokens per minute, so one lesson build gets a fixed token budget
-// for the material. The lesson is built from the start of the document that fits. Nothing is cut silently:
-// the result carries a notice the teacher sees.
+// Turns an extracted document into parts that one model call can read, and describes them.
+// The free Groq key allows about 8,000 tokens per minute, so a lesson is built from one part: a stretch of the
+// document up to a fixed token budget. A long file becomes several parts the teacher can choose from, one lesson
+// each. Nothing is cut silently: every part is listed, in order, with its pages.
 
 // Estimated tokens for the material. Override with MATERIAL_TOKEN_BUDGET on a host whose key allows more.
 export const DEFAULT_TOKEN_BUDGET = 4000;
@@ -11,8 +11,6 @@ export const DEFAULT_TOKEN_BUDGET = 4000;
 const TOKENS_PER_CHAR = { latin: 0.25, hebrewArabic: 0.385, cjk: 1, other: 0.45 };
 // A repeated line shorter than this is kept: headings and labels legitimately repeat.
 const MIN_REPEAT_LENGTH = 60;
-// A unit that does not fit is cut at a sentence only when this much budget is left to fill.
-const MIN_PARTIAL_TOKENS = 150;
 
 function charClass(code) {
   if (code <= 0x024f || (code >= 0x1e00 && code <= 0x1eff)) return 'latin';
@@ -49,30 +47,40 @@ function groupPages(segments) {
 
 const repeatKey = text => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 
-// Cuts text to at most `tokens`, at a sentence end where possible and otherwise at a word.
+// Cuts text to at most `tokens`, at a sentence end where possible and otherwise at a word. Each piece is counted once
+// and charged one extra for the space that joins it, so the result is never over the limit.
 function cutToFit(text, tokens) {
-  const sentences = text.split(/(?<=[.!?…؟。])\s+/u);
-  let kept = '';
-  for (const sentence of sentences) {
-    const next = kept ? `${kept} ${sentence}` : sentence;
-    if (estimateTokens(next) > tokens) break;
-    kept = next;
-  }
-  if (kept) return kept;
-  for (const word of text.split(' ')) {
-    const next = kept ? `${kept} ${word}` : word;
-    if (estimateTokens(next) > tokens) break;
-    kept = next;
-  }
-  return kept;
+  const take = pieces => {
+    const kept = [];
+    let used = 0;
+    for (const piece of pieces) {
+      used += estimateTokens(piece) + 1;
+      if (used > tokens) break;
+      kept.push(piece);
+    }
+    return kept.join(' ');
+  };
+  return take(text.split(/(?<=[.!?…؟。])\s+/u)) || take(text.split(' '));
 }
 
-// segments: [{ page, text }] as read from the file. totalPages is null for Word files.
-// readAll is false when the reader stopped early on a very long PDF.
-export function prepareMaterial({ segments, totalPages = null, readAll = true }, { budget = DEFAULT_TOKEN_BUDGET } = {}) {
+const wordsIn = text => text.trim().split(/\s+/).length;
+// A short line with no sentence ending is probably a heading.
+const looksLikeHeading = text => wordsIn(text) <= 8 && !/[.!?:;,،。…]$/u.test(text);
+const LABEL_LENGTH = 60;
+
+export class PartError extends Error {
+  constructor(partCount) {
+    super(`This file has ${partCount} part${partCount === 1 ? '' : 's'}. Choose one of them.`);
+    this.partCount = partCount;
+  }
+}
+
+// The document as lines, with exact repeats removed. A line too big for one part is cut into pieces.
+function readUnits(segments, budget) {
   const units = [];
   const seen = new Set();
   let removedRepeats = 0;
+  const add = (page, text) => units.push({ page, text, tokens: estimateTokens(text) + 1 });
   for (const page of groupPages(segments)) {
     for (const line of cleanText(page.text).split('\n')) {
       if (!line) continue;
@@ -82,49 +90,82 @@ export function prepareMaterial({ segments, totalPages = null, readAll = true },
         continue;
       }
       seen.add(key);
-      units.push({ page: page.page, text: line, tokens: estimateTokens(line) + 1 });
+      let rest = line;
+      while (estimateTokens(rest) + 1 > budget) {
+        const piece = cutToFit(rest, budget - 1);
+        if (!piece) break;
+        add(page.page, piece);
+        rest = rest.slice(piece.length).trim();
+      }
+      if (rest) add(page.page, rest);
     }
   }
+  return { units, removedRepeats };
+}
 
-  const used = [];
+// Packs the lines into parts of at most `budget` tokens. A part ends before a heading when that leaves it at least
+// half full, so a heading is never the last line of one part with its text in the next.
+function packParts(units, budget) {
+  const parts = [];
+  let current = [];
   let tokens = 0;
-  let partial = false;
-  let left = units.length;
+  const close = () => {
+    if (current.length) parts.push(current);
+    current = [];
+    tokens = 0;
+  };
   for (const unit of units) {
-    if (tokens + unit.tokens <= budget) {
-      used.push(unit);
-      tokens += unit.tokens;
-      left -= 1;
-      continue;
-    }
-    const room = budget - tokens;
-    if (room >= MIN_PARTIAL_TOKENS || used.length === 0) {
-      const cut = cutToFit(unit.text, room - 1);
-      if (cut) {
-        used.push({ page: unit.page, text: cut });
-        tokens += estimateTokens(cut) + 1;
-        partial = true;
-        left -= 1;
+    if (tokens + unit.tokens > budget) {
+      const headingAt = current.findLastIndex(item => looksLikeHeading(item.text));
+      const before = current.slice(0, headingAt).reduce((sum, item) => sum + item.tokens, 0);
+      if (headingAt > 0 && before >= budget / 2) {
+        const carried = current.slice(headingAt);
+        current = current.slice(0, headingAt);
+        close();
+        current = carried;
+        tokens = carried.reduce((sum, item) => sum + item.tokens, 0);
+      } else {
+        close();
       }
     }
-    break;
+    current.push(unit);
+    tokens += unit.tokens;
   }
+  close();
+  return parts;
+}
 
-  const text = used.map(unit => unit.text).join('\n');
-  const pages = used.map(unit => unit.page).filter(page => page !== null);
-  const usedChars = text.length;
-  const totalChars = units.reduce((sum, unit) => sum + unit.text.length + 1, 0) - 1;
-  const leftOut = left > 0 || partial || !readAll;
+function describePart(units, index) {
+  const heading = units.find(unit => looksLikeHeading(unit.text));
+  const first = (heading ?? units[0]).text;
+  const label = first.length > LABEL_LENGTH ? `${first.slice(0, LABEL_LENGTH).trim()}…` : first;
+  const pages = units.map(unit => unit.page).filter(page => page !== null);
   return {
-    text,
-    notice: {
-      truncated: leftOut,
-      estimatedTokens: tokens,
-      pagesUsed: pages.length ? { from: pages[0], to: pages.at(-1) } : null,
-      totalPages,
-      endsMidPage: partial,
-      usedPercent: readAll && totalChars > 0 ? Math.min(100, Math.round((usedChars / totalChars) * 100)) : null,
-      removedRepeats,
-    },
+    index,
+    label,
+    pages: pages.length ? { from: pages[0], to: pages.at(-1) } : null,
+    estimatedTokens: units.reduce((sum, unit) => sum + unit.tokens, 0),
   };
+}
+
+// document: { segments: [{ page, text }], totalPages, readAll } as read from the file. totalPages is null for Word
+// files; readAll is false when the reader stopped early on a very long PDF.
+// Returns the text of the chosen part and a notice listing all the parts.
+export function prepareMaterial({ segments, totalPages = null, readAll = true }, { budget = DEFAULT_TOKEN_BUDGET, part = 0 } = {}) {
+  const { units, removedRepeats } = readUnits(segments, budget);
+  const parts = packParts(units, budget);
+  if (part !== 0 && part >= parts.length) throw new PartError(parts.length);
+  const chosen = parts[part] ?? [];
+  const described = parts.map(describePart);
+  const notice = {
+    partIndex: part,
+    partCount: parts.length,
+    parts: described,
+    estimatedTokens: described[part]?.estimatedTokens ?? 0,
+    pagesUsed: described[part]?.pages ?? null,
+    totalPages,
+    moreUnread: !readAll,
+    removedRepeats,
+  };
+  return { text: chosen.map(unit => unit.text).join('\n'), notice };
 }
