@@ -15,7 +15,7 @@ Last updated 1 Nov 2026 against commit `7aed48e`. Nothing here was run against t
 | R5 | Source passage behind a message (3) | auto: `lessonPlan.test.js` (quote must exist in the file, no reorder, no duplicate), `chat.test.js` (quote on first message) | UI "Show source" only seen in mock mode |
 | R6 | Loading, error and empty states (3) | manual: generating and plan-failed states seen in mock mode | No checklist of every state. Cold start untested on Render |
 | R7 | Usable on a phone (3) | manual: Preview tab at 375 px in mock mode | Create tab, setup screen, Stop, Show source on a phone not walked |
-| R8 | AI logic, lesson state, UI separate; plan and progress in app state (3) | auto: `chat.test.js`, `lessons.test.js` | none |
+| R8 | AI logic, lesson state, UI separate; plan and progress in app state (3) | auto: `chat.test.js`, `publish.test.js`, `upload.test.js` | none |
 | R9 | Unseen files: RTL, scans, formulas, tables, very long (3) | auto: `documents.test.js` (docx, pdf, empty, wrong type, Hebrew file name) | **missing**: scanned PDF, Hebrew body text through plan and tutor, table, formula, file over the 12,000-character cap, prompt injection inside a file |
 | R10 | Key sent per request, never stored or logged (4) | auto: `ai.test.js` (header, no key, 401 text, no provider body), `upload.test.js` (malformed header not echoed) | **missing**: a test that no log line or response contains the key. Git history scan not run |
 | R11 | Hosted, works in a private window (4, 5) | none | **missing**: all of it |
