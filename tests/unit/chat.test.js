@@ -16,6 +16,57 @@ function service({ delayMs = 0 } = {}) {
   return { ai, chat: createChatService({ ai, store: createPlanStore({ ai }) }) };
 }
 
+const noAttempt = "I don't know";
+
+test('a turn with no answer climbs the ladder the same as a wrong answer', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  let state;
+  for (let i = 0; i < 3; i++) state = await chat.turn({ type: 'message', text: noAttempt });
+  assert.equal(state.attemptsPerStep['step-1'], 3);
+  assert.equal(state.messages.at(-1).attempt, 3);
+  assert.equal(state.needsChoice, false);
+  state = await chat.turn({ type: 'message', text: noAttempt });
+  assert.equal(state.attemptsPerStep['step-1'], 4);
+  assert.equal(state.needsChoice, true);
+});
+
+test('move on is refused before the fourth try on a step', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  await chat.turn({ type: 'message', text: keepGoing });
+  await assert.rejects(chat.turn({ type: 'move_on' }), error => error instanceof ChatError && error.status === 409);
+});
+
+test('move on marks the step as moved on, not completed, and advances', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  for (let i = 0; i < 4; i++) await chat.turn({ type: 'message', text: keepGoing });
+  const state = await chat.turn({ type: 'move_on' });
+  assert.deepEqual(state.completedStepIds, []);
+  assert.deepEqual(state.movedOnStepIds, ['step-1']);
+  assert.equal(state.currentStepId, 'step-2');
+  assert.equal(state.studentProgress['step-1'].outcome, 'wrong');
+  assert.equal(state.messages.at(-1).status, 'moved_on');
+  assert.equal(state.messages.at(-1).stepId, 'step-2');
+});
+
+test('move on after no-answer turns records no_answer', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  for (let i = 0; i < 4; i++) await chat.turn({ type: 'message', text: noAttempt });
+  const state = await chat.turn({ type: 'move_on' });
+  assert.equal(state.studentProgress['step-1'].outcome, 'no_answer');
+});
+
+test('an understood step records the understood outcome', async () => {
+  const { chat } = service();
+  await chat.turn({ type: 'start' });
+  const state = await chat.turn({ type: 'message', text: understood });
+  assert.equal(state.studentProgress['step-1'].outcome, 'understood');
+  assert.deepEqual(state.completedStepIds, ['step-1']);
+});
+
 test('start opens the first step with its source quote', async () => {
   const { chat } = service();
   const state = await chat.turn({ type: 'start' });
