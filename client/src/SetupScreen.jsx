@@ -6,19 +6,8 @@ const WARN_AT = 450;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ['pdf', 'docx'];
 const EXAMPLE = 'Teach this to 7th graders, in French. Be Socratic. Keep it under 15 minutes.';
-// Templates are whole goals with [placeholders] the teacher fills in.
-const TEMPLATES = [
-  { label: 'Socratic lesson', text: 'Teach [topic] to [grade] students, in [language]. Be Socratic. Keep it under [minutes] minutes.' },
-  { label: 'Apply to an example', text: 'Teach [topic] to [audience]. Start with the main idea, then ask the student to apply it to one example from the file.' },
-  { label: 'Step by step', text: 'Teach [topic] step by step. After each step, check understanding before moving on.' },
-  { label: 'עברית', text: 'לימוד [נושא] לתלמידי [כיתה]. שאל שאלות והנחה את התלמיד בשיטה סוקרטית. עד [דקות] דקות.' },
-];
-// Modifiers add one part of a goal to whatever is already written.
-const MODIFIERS = [
-  { label: 'In French', phrase: 'Teach it in French.' },
-  { label: 'Check understanding', phrase: 'Check understanding after each step.' },
-  { label: 'Under 15 min', phrase: 'Keep it under 15 minutes.' },
-];
+// One template: a whole goal with [placeholders] the teacher fills in. The brackets are highlighted and block Build until replaced.
+const TEMPLATE = 'Teach [topic] to [grade] students, in [language]. Be Socratic. Check understanding after each step. Keep it under [minutes] minutes.';
 
 function formatSize(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -41,6 +30,7 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
   const [error, setError] = useState('');
   const input = useRef(null);
   const goal = useRef(null);
+  const backdrop = useRef(null);
   // After a template is inserted, the first [placeholder] is selected so the teacher can type over it.
   const selectPlaceholder = useRef(false);
 
@@ -60,8 +50,14 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
     }
   }, [prompt]);
 
+  // The goal is drawn twice: the real textarea has transparent text, and this copy behind it paints the [brackets] light green.
+  const highlighted = prompt.split(/(\[[^\]]*\])/).map((part, index) => (index % 2
+    ? <mark key={index} className="rounded bg-emerald-100 text-emerald-900">{part}</mark>
+    : part));
+
   const reason = !file ? 'Add a .docx or .pdf file to continue.' : goalProblem(prompt);
   const canBuild = !reason;
+  const wouldExceed = prompt.trim() ? prompt.trimEnd().length + TEMPLATE.length + 1 > MAX_PROMPT : false;
 
   // An empty box takes the template. A box with text gets the template on a new line, so nothing is lost.
   function insertTemplate(text) {
@@ -100,9 +96,14 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
         onDragLeave={() => setDragging(false)}
         onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files[0]); }}
         className={`mt-8 rounded-3xl border bg-white shadow-lg transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10 ${dragging ? 'border-teal-600 bg-teal-50/40' : 'border-stone-300'}`}>
-        <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
-          placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
-          className="block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
+        <div className="relative">
+          <div ref={backdrop} aria-hidden="true" dir="auto"
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-5 pt-5 text-base leading-7 text-stone-900 sm:text-lg">{highlighted}{'\n'}</div>
+          <textarea id="goal" ref={goal} dir="auto" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={MAX_PROMPT} rows={4}
+            onScroll={event => { if (backdrop.current) backdrop.current.scrollTop = event.target.scrollTop; }}
+            placeholder={EXAMPLE} aria-describedby="goal-help goal-hint"
+            className="relative block max-h-80 min-h-[9rem] w-full resize-none rounded-t-3xl bg-transparent px-5 pt-5 text-base leading-7 text-transparent caret-stone-900 outline-none placeholder:text-stone-400 sm:min-h-[11rem] sm:text-lg" />
+        </div>
 
         {file && <div className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-2xl bg-stone-100 px-4 py-2 text-sm">
           <p dir="auto" className="min-w-0 truncate"><span className="font-medium">{file.name}</span> <span className="text-stone-500">· {formatSize(file.size)}</span></p>
@@ -131,33 +132,11 @@ export default function SetupScreen({ apiKey, onKeyChange, onSubmit, appError, o
 
       <p id="goal-help" className="mt-3 text-center text-sm text-stone-600" role="status">{reason}</p>
 
-      <div className="mt-4 space-y-3 text-center">
-        <div role="group" aria-label="Start from a template">
-          <p className="mb-2 text-xs text-stone-500">Start from a template</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {TEMPLATES.map(template => {
-              const wouldExceed = !prompt.trim() ? template.text.length > MAX_PROMPT : prompt.trimEnd().length + template.text.length + 1 > MAX_PROMPT;
-              return <button key={template.label} type="button" disabled={wouldExceed} title={template.text} dir="auto"
-                onClick={() => insertTemplate(template.text)}
-                className="rounded-full border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs text-teal-900 hover:border-teal-600 disabled:opacity-50">
-                {template.label}
-              </button>;
-            })}
-          </div>
-        </div>
-        <div role="group" aria-label="Add to your goal">
-          <div className="flex flex-wrap justify-center gap-2">
-            {MODIFIERS.map(modifier => {
-              const added = prompt.includes(modifier.phrase);
-              const wouldExceed = prompt.length + modifier.phrase.length + 1 > MAX_PROMPT;
-              return <button key={modifier.label} type="button" disabled={added || wouldExceed} aria-pressed={added} title={modifier.phrase}
-                onClick={() => setPrompt(current => `${current.trim()} ${modifier.phrase}`.trim())}
-                className={`rounded-full border px-3 py-1.5 text-xs disabled:opacity-50 ${added ? 'border-teal-600 bg-teal-50 text-teal-900' : 'border-stone-300 bg-white text-stone-700 hover:border-teal-500'}`}>
-                {added ? '✓ ' : '+ '}{modifier.label}
-              </button>;
-            })}
-          </div>
-        </div>
+      <div className="mt-4 text-center">
+        <button type="button" disabled={wouldExceed} title={TEMPLATE} onClick={() => insertTemplate(TEMPLATE)}
+          className="rounded-full border border-teal-300 bg-teal-50 px-4 py-1.5 text-xs text-teal-900 hover:border-teal-600 disabled:opacity-50">
+          Use the template
+        </button>
       </div>
 
       {error && <p role="alert" className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">{error}</p>}
