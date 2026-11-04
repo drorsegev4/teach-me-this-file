@@ -33,7 +33,9 @@ test('sends the key in the header and the schema to Gemini', async () => {
 
 test('refuses to call the provider without a key', async () => {
   const ai = createAI({ apiKey: '', fetchImpl: () => assert.fail('should not call') });
-  await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), ProviderError);
+  await assert.rejects(ai.planLesson({ text: 'doc', teacherPrompt: 'p' }), {
+    name: 'Error', message: 'Paste your Gemini API key in Settings, then try again.',
+  });
 });
 
 test('returns a safe error and never the provider body on HTTP failure', async () => {

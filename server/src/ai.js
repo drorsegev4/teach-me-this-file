@@ -149,7 +149,7 @@ function providerFailure(response) {
 }
 
 function requireKey(apiKey) {
-  if (!apiKey) throw new ProviderError('Set GEMINI_API_KEY in your local .env file, then restart the server.');
+  if (!apiKey) throw new ProviderError('Paste your Gemini API key in Settings, then try again.');
 }
 
 async function callStructured({ apiKey, model, fetchImpl, name, instructions, input, schema }) {
