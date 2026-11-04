@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { lessonPlanSchema } from './lessonPlan.js';
 import { audienceGuidance } from './audience.js';
@@ -8,15 +8,9 @@ import { GEMINI_URL, geminiModel } from './geminiConfig.js';
 
 export const MODEL = geminiModel();
 
-export const PROMPT_NAMES = ['lesson_plan', 'check', 'tutor'];
-
 // Read on every call, so edits to the prompt files apply without a restart.
 export function readPrompt(name) {
   return readFileSync(new URL(`../prompts/${name}.md`, import.meta.url), 'utf8');
-}
-
-export function writePrompt(name, text) {
-  writeFileSync(new URL(`../prompts/${name}.md`, import.meta.url), text);
 }
 
 export const checkSchema = z.object({

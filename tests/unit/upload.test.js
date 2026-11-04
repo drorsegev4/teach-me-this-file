@@ -28,6 +28,14 @@ function upload(base, { prompt, file, part, headers = {} }) {
 
 const goodPrompt = 'Teach this to 7th graders, in French. Be Socratic.';
 
+test('production app never mounts the local playground API', async () => {
+  await withServer(async base => {
+    const response = await fetch(base + '/api/dev/status');
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'Unknown API route.' });
+  });
+});
+
 test('build rejects an empty goal but accepts a very short one', async () => {
   await withServer(async base => {
     const empty = await upload(base, { prompt: '   ', file: await sampleFile() });

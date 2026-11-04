@@ -13,7 +13,6 @@
     "start": "node --env-file-if-exists=.env server/src/index.js",
     "preview": "vite preview",
     "test": "node --test tests/unit/*.test.js",
-    "test:live": "node --env-file-if-exists=.env tests/live/manual.js",
     "plan:sample": "node --env-file-if-exists=.env tests/live/plan_sample.js",
     "check:key": "node --env-file-if-exists=.env tests/live/check_key.js",
     "eval:check": "node --env-file-if-exists=.env tests/evals/run-check.js",

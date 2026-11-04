@@ -26,20 +26,13 @@ function reviewerKey(req) {
   return req.get(KEY_HEADER)?.trim() || process.env.GEMINI_API_KEY;
 }
 
-// A local prompt playground, kept out of the repository. It is mounted only when the file exists and is enabled.
-const dev = process.env.NODE_ENV === 'development' || process.env.DEV_TOOLS === '1'
-  ? await import('./devTools.js').catch(() => null)
-  : null;
-
-export function createApp({ ai: injectedAI, devTools = Boolean(dev?.devToolsEnabled()) } = {}) {
+export function createApp({ ai: injectedAI } = {}) {
   const app = express();
   const fallbackAI = injectedAI ?? defaultAI();
   const aiFor = req => injectedAI ?? (process.env.AI_MODE === 'mock' ? fallbackAI : createAI({ apiKey: reviewerKey(req) }));
   const store = createPlanStore();
   const chat = createChatService({ store });
   app.disable('x-powered-by');
-  // Dev tools go first: they take larger bodies (material text) and are absent unless enabled.
-  if (devTools && dev) app.use('/api/dev', express.json({ limit: '1mb' }), dev.createDevRouter({ ai: fallbackAI }));
   app.use('/api', (req, res, next) => {
     const key = req.get(KEY_HEADER);
     if (key && (key.trim().length > 200 || /\s/.test(key.trim()))) {
