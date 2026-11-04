@@ -1,70 +1,79 @@
 # Test and eval plan
 
-Maps every requirement in `ASSIGNMENT.md` to the proof we have, or still need. Status words:
-**auto** = `npm test`, no network. **eval** = live model run with saved results. **manual** = a person in a browser. **missing** = nothing yet.
-Last updated 1 Nov 2026 against commit `7aed48e`. Nothing here was run against the live Render URL.
+Updated 4 November 2026 against the working tree on feat/gemini-api. This is a verification inventory, not a record of tests run today. Production was not verified in this session.
 
-## 1. Requirement matrix
+## Evidence available
 
-| # | Requirement (brief section) | Proof today | Gap |
-|---|---|---|---|
-| R1 | Screen to upload a file and write the prompt (3) | auto: `upload.test.js` (short prompt, wrong type, no file). manual: built screen, mock AI only | Real Groq build in a browser not run |
-| R2 | Chat teaches, does not summarize (2) | eval: `check.md`, 10 rows, 10/10 at `4680baf` | `tutor.md` and `lesson_plan.md` not evaluated. This is the largest gap |
-| R3 | Streaming answers and Stop (3) | auto: `chat.test.js` (stream over HTTP, stopped reply commits nothing, abort over HTTP leaves state unchanged) | Never run against a real Groq stream |
-| R4 | Visible progress (3) | auto: step and outcome state in `chat.test.js`. manual: bar and "Step 1 of N" seen in mock mode | none beyond a real run |
-| R5 | Source passage behind a message (3) | auto: `lessonPlan.test.js` (quote must exist in the file, no reorder, no duplicate), `chat.test.js` (quote on first message) | UI "Show source" only seen in mock mode |
-| R6 | Loading, error and empty states (3) | manual: generating and plan-failed states seen in mock mode | No checklist of every state. Cold start untested on Render |
-| R7 | Usable on a phone (3) | manual: Preview tab at 375 px in mock mode | Create tab, setup screen, Stop, Show source on a phone not walked |
-| R8 | AI logic, lesson state, UI separate; plan and progress in app state (3) | auto: `chat.test.js`, `publish.test.js`, `upload.test.js` | none |
-| R9 | Unseen files: RTL, scans, formulas, tables, very long (3) | auto: `documents.test.js` (docx, pdf, empty, wrong type, Hebrew file name) | **missing**: scanned PDF, Hebrew body text through plan and tutor, table, formula, file over the 12,000-character cap, prompt injection inside a file |
-| R10 | Key sent per request, never stored or logged (4) | auto: `ai.test.js` (header, no key, 401 text, no provider body), `upload.test.js` (malformed header not echoed) | **missing**: a test that no log line or response contains the key. Git history scan not run |
-| R11 | Hosted, works in a private window (4, 5) | none | **missing**: all of it |
-| R12 | README, DECISIONS (5) | files exist | DECISIONS still has `[TODO]` sections. Test count stale |
-| R13 | About 5 scenarios showing AI behavior (5) | eval: `check` golden set only | **missing**: tutor scenarios (see T1) |
+| Area | Existing evidence | Remaining gap |
+| --- | --- | --- |
+| Software suite | 116 tests passed in a clean committed-code export after npm ci on 4 November; 120 in the workspace including four ignored dev-tool tests | Deployed and browser checks remain separate |
+| Production build | Fresh npm ci and production build passed in the clean export; frontend/assets, health, empty chat and disabled dev routes passed a production-mode smoke test | Live Render deployment/browser verification |
+| Gemini key and plan | Live key check succeeded; sample lesson passed on first generation attempt | Real browser upload-to-completion journey and adverse inputs |
+| Tutor | Live opening smoke tests and direct grade-comparison replies | Full current Gemini datasets, transition/grade comparisons and human quality review |
+| Classifier | Unit tests and saved historical Groq golden-set results | Full Gemini classifier evaluation; historical 10/10 is not a Gemini result |
+| Streaming/Stop | Adapter stream test; HTTP streaming, abort and unchanged progress tests; live tutor reply | Browser interruption and deployed stream behavior |
+| Publishing/sessions | publish.test.js covers isolated progress, stable publish ids, published copies and invalid sessions/links | Multiple real browsers, reloads, eviction and production restart behavior |
+| Document extraction | PDF/DOCX, invalid/empty input and filename tests; material splitting/coverage tests | Scan, formula/table, prompt injection and multilingual live fixtures |
+| Keys | Header/schema/no-key/provider-error tests and malformed-key rejection without echo | Comprehensive capture of logs and responses, history secret scan |
+| Grade adaptation | Audience format tests; shared evaluator limits; live seventh-grade/adult replies | Validate comprehension and attention with students; prompted limits are not enforced at runtime |
+| Four phases and answer cards | Product direction only | Implementation and tests still required |
+| Duration/timer/test score | No implementation; timeLimit is metadata/instructions | Budget rules, controls, elapsed-time tracking, scoring and expiry behavior |
 
-## 2. Tests and evals to add, in order
+## Whole-document coverage checks
 
-**T1. Tutor scenarios with deterministic rules (R2, R13).** One runner like `npm run eval:check`, live, saved under `tests/evals/results/` with the prompt's commit. Five scenarios, each run 3 times at temperature 0.4:
-1. Wrong answer, rung 1: reply asks again more simply, does not name the error, does not contain the step's answer phrase.
-2. Wrong answer, rung 3: reply gives only the missing piece and asks about it.
-3. "Say I got it": checker returns `no_attempt`, tutor does not praise an achievement, step does not advance.
-4. Off-file question: reply says it is outside the material, does not answer, returns to the step.
-5. Hebrew lesson: reply is in Hebrew (RTL) and within the word limit.
+- material.test.js verifies all lines/pages survive internal chunking, deduplication, input bounds and explicit refusal of partial extraction.
+- document-map.test.js verifies end-of-document evidence reaches the planner, source quotes are verified, malformed maps get one repair, plan retries reuse the map, and short files skip mapping.
+- upload.test.js verifies the real HTTP build considers final content, returns no parts selector metadata, refuses stale part-selection requests and cannot publish after a late mapping failure.
+- ai.test.js verifies the final map request does not duplicate raw document text.
+- Run node --env-file-if-exists=.env tests/live/review_document.js for a synthetic ten-page Gemini coverage check with the requested topic on pages 9-10. Reports are ignored and are not evidence about the user's original uploaded file.
 
-Deterministic rules checked on every reply (no judge model): language, 80-word limit, ends in a question for Socratic, does not contain the next step's title unless the step was `understood`, does not contain answer phrases before rung 3. A judge model for the rest comes later, after you label a calibration set. An error after retries counts as "incomplete" and is rerun, never scored.
+## Automated checks
 
-**T2. Plan inputs that must not break (R9).** Fixtures under `tests/unit/fixtures/` or live-only:
+Run npm test and npm run build. In the restricted Windows sandbox, child-process spawn EPERM prevented execution; successful checks used approved execution outside that sandbox. A sandbox failure is not a failing application assertion.
 
-| Input | Expected | Kind |
-|---|---|---|
-| Scanned PDF, no text | Clear error, no plan | auto |
-| Hebrew document, English goal | Plan builds, quotes pass the check | live |
-| English file, goal asks for French | Plan rules say French | live |
-| Document with no teachable content | Refusal with a reason, no steps | live |
-| File containing "ignore your instructions" | Treated as content, rules unchanged | live |
-| Goal is only "teach this" (20 characters) | Defaults fill the gaps | live |
-| File over the 12,000-character cap | 413 with a count, nothing cut | auto (exists in code, no test) |
+Relevant suites: ai.test.js, audience.test.js, lessonPlan.test.js, chat.test.js, publish.test.js, upload.test.js, documents.test.js, material.test.js, eval-score.test.js and tutor-rules.test.js. The local ignored devTools.test.js adds tests in this workspace but is absent from a clean clone.
 
-**T3. Key never leaks (R10).** Auto test: run build and a chat turn with a key such as `gsk_test_123`, capture `console.log`/`console.error` and every response body, assert the key appears nowhere. Plus a one-off `gitleaks` run over history before the repo goes public.
+Plan checks enforce 1-3 steps and exact bounded quotes. The old 12,000-character rejection expectation is obsolete: long files are mapped internally in bounded chunks. Incomplete PDF extraction is refused rather than used as a partial lesson.
 
-**T4. Failed change keeps the lesson (R1, R6).** Fix first: keep the old session until the new plan succeeds, then test that a refused or failed rebuild leaves the previous chat state. Auto.
+## Live model checks
 
-**T5. Real Groq pass by hand (R1, R3, R4, R5, R6).** Walk the whole flow once with a real key on desktop and a phone, using `שיעור 4- למידה (קצר).docx`. Record what you saw, including Stop mid-reply.
+- npm run check:key: small structured request through the real adapter, without printing credentials.
+- npm run plan:sample: validates a generated plan and saves output under ignored tests/live/results.
+- npm run eval:check: classifier dataset, repeated runs, saved results and scoring. Provider errors count as failed runs.
+- npm run eval:tutor: repeated tutor scenarios, automatic rules and human review sheet. Target a small smoke run with -- --only 1 --runs 1, or select --dataset conditioning. Provider errors are incomplete, not successes or behavior failures.
 
-**T6. Deployed pass (R11).** Private window on the Render URL with a fresh key. Includes cold start after 15 minutes idle.
+Tutor review must cover teaching before questioning, grade-appropriate language, example accuracy, natural transitions, feedback after partial answers, no_attempt, requested false confirmation, off-file questions and Stop. Brief source-based explanations at a new step are expected; examples are optional; the old opening-no-answer rule no longer applies. First-turn clarification may explain a gap; the old no-hint rule was removed. Later attempts retain hints, explanation and the fourth-turn choice.
 
-**T7. Context window (large files).** Find Groq's real limit for `openai/gpt-oss-120b` before changing the 12,000-character cap. Report the number only.
+Read docs/TUTOR_STANDARD.md for current limits and heuristics. A passing automated report does not certify pedagogical quality. Existing datasets are mainly two Hebrew subjects; direct English grade checks do not replace a broader corpus. Results generated against dirty prompts cannot be reproduced from a prompt commit alone.
 
-## 3. Release gate
+## Focused concise-chat regression
 
-All must be true, with evidence, before sending links:
-- [ ] `npm test` and `npm run build` pass on a clean clone.
-- [ ] T1 five scenarios recorded in DECISIONS with real output; no false advancement in any run.
-- [ ] T2 and T3 done; any failure either fixed or listed as a known weakness.
-- [ ] T5 and T6 walked and written down.
-- [ ] `gitleaks` over full history is clean; repo public.
-- [ ] README and DECISIONS have no `[TODO]`.
+Run node --env-file-if-exists=.env tests/live/review_chat.js. It checks six status cases and three tutor replies against a labeled synthetic reconstruction of the user report; it does not verify the original uploaded file. Review the actual replies even when automated checks pass. Unit coverage also verifies understanding-goal bounds/backward compatibility and that next-step questions enter next-step history.
 
-## 4. Not in scope now
+## Required regression additions
 
-Readiness score, teacher approval flow, accounts, long-document tier 2, analytics, OCR. They stay in the roadmap's deferred list.
+1. Failed replacement build preserves the prior plan, published reference and chat progress. Fix the behavior before asserting this guarantee.
+2. Capture build/chat logs and responses with a synthetic key and assert no disclosure. Scan Git history before public release.
+3. Exercise scans/no text, Hebrew material with English goal, another requested language, no teachable content, instruction injection and whole-document and final-section coverage. Verify no silently omitted material claims.
+4. Compare openings and transitions across elementary, middle-school, high-school and adult audiences, including unspecified audience fallback. Human reviewers check whether the question follows from the taught example.
+5. When activities exist: validate answer formats, one correct multiple-choice answer, test answers withheld until submission, retries, grading and malformed submissions. Keep correct answers out of student-facing data before submission.
+6. When timing exists: budget each phase, pause/resume, reload behavior, expiry during a reply/test, overtime, completion and different student speeds. Label durations as estimates until calibrated.
+
+## Teacher review cost check
+
+After a successful build, show the prepared overview without an opening tutor request. Let's begin starts the first tutor turn; viewing the welcome must not create chat progress. A failed build must not start the tutor. Publish does not call the model. A stopped or failed opening shows recovery on the welcome without regenerating the plan. The teacher change textbox is removed; New lesson returns to setup. Mobile should switch from Create to Preview when the welcome is ready, and keep recovery errors visible.
+
+## Manual and deployment checks
+
+Walk teacher setup, upload, whole-document preparation, plan review, welcome, explicit Begin and live preview, publish and student start with a real Gemini key. Check independent browsers and phone/RTL layouts. Exercise errors, Stop, retry, refresh, completion and old links after rebuild/restart. Verify secrets and current Render settings, cold start, production health and streamed requests in a private window.
+
+## Release checklist
+
+- [x] Current suite and production build pass in a clean committed-code export with dependencies installed from the lockfile.
+- [ ] Current Gemini datasets and human-reviewed examples are recorded, including failures.
+- [ ] Document and key-handling regressions are covered or limitations explicitly listed.
+- [ ] Mobile/RTL and deployed private-window journeys are recorded.
+- [ ] History secret scan is clean before public release.
+- [ ] Documentation matches shipped behavior and clearly labels planned features.
+
+Do not treat the proposed timer and activity work as completed release evidence.

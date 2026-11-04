@@ -1,62 +1,73 @@
 # Decisions
 
-Working draft. Reviewers read this file, so it must match what the code does. Update it with each meaningful change.
+Updated 4 November 2026 for the Gemini and whole-document lesson release. This document separates implemented behavior from the next product design. Release commits keep provider/document preparation, interface changes and documentation separate.
 
-## Main choices and why
+## Implemented choices and why
 
-- **React, Vite, Tailwind, Node.js/Express.** Required stack. Express serves the AI calls, so the API key stays on the server.
-- **PDF and DOCX text extraction on a worker thread.** Extraction runs off the request thread with a 30-second timeout and a 128 MB memory limit, so a bad file cannot block the server. Only text is read. Images, diagrams, formulas and table layout are not interpreted, and the user is warned.
-- **Upload limits.** 10 MB per file, at most 60 PDF pages, at most 20,000 words. Chosen to keep requests small and processing bounded.
-- **Scaffolding first, features second.** The client is a placeholder until the teacher flow exists, so each commit builds.
-- **One configuration.** Local and production use the same commands (`npm run build`, `npm start`) and the same names in `.env.example`. Node 22 is pinned in `.nvmrc`; line endings are LF via `.gitattributes`. The README is the single how-to. `render.yaml` holds the production settings for Option A below.
-- **Chat turns: check, then reply.** Each student answer is first checked against the step's source (understood, keep going, or off the material). The tutor's reply is then written knowing that result, so it never confirms a step it has not passed. The check returns JSON; the reply streams as text.
-- **Off-file questions are declined.** The tutor says the question is outside the material and returns to the current step. It does not answer, to keep teaching grounded in the file. The tutor writes this reply from `tutor.md`; it is no longer a fixed sentence, so the rule depends on the prompt following it.
-- **Wrong answers climb a ladder.** Each wrong answer (`keep_going`) on a step raises that step's attempt count. Attempt 1 encourages and asks again more simply; attempt 2 names the misunderstanding and hints; attempt 3 and later give only the missing piece. A `no_attempt` reply does not name a misunderstanding. Known issue: on a real run, attempt 3 on the first step gave the definition itself.
-- **Stop commits nothing.** The browser aborts the stream; the server cancels the model call and keeps progress and history unchanged. The student's message returns to the input box.
-- **Progress lives in server state, not in the chat history.** Completed steps and the current step are stored separately from messages.
-- **Mock mode (`AI_MODE=mock`).** Serves a saved plan and scripted replies, so the page can be built and tested without the provider. The real model is checked separately with `npm run plan:sample` and one live chat turn.
+- **React, Vite, Tailwind and Express.** The teacher uploads material and a goal, reviews the plan, sees a welcome and overview in the preview automatically, then publishes a student link. Free-text change requests were removed to simplify the assignment flow. Changing the goal means starting a new lesson. One Node process serves the API and production client; Vite proxies the API locally.
+- **Gemini behind a shared AI interface.** createAI exposes planLesson, classify and replyStream. Lesson state and routes do not depend on Gemini's wire format. The adapter uses Google's OpenAI-compatible REST endpoint, JSON Schema responses and streamed text without an SDK dependency. geminiConfig.js owns the endpoint and default model, gemini-3.8-flash; GEMINI_MODEL overrides it.
+- **Keys and configuration.** GEMINI_API_KEY lives in the ignored .env locally and in Render secrets in production. .env.example contains placeholders only. A reviewer's key stays in browser memory and travels in X-AI-Api-Key for that request; an empty field uses the host key. Groq credentials are not fallbacks. Provider response bodies are not returned to users. This is implemented handling, not evidence of a complete security audit.
+- **Extraction in a child process.** PDF and DOCX readers run with a 30-second timeout and a 128 MB V8 heap setting. A native reader crash cannot take down the API. Uploads are limited to 10 MB. PDF extraction is bounded at roughly 150,000 extracted characters at page boundaries. A file not read in full is now refused for whole-document planning, rather than taught from a silent prefix. The old 60-page and 20,000-word limits are not current behavior. Images, diagrams, formulas and table layout are not interpreted; scans need OCR.
+- **Whole-document planning without teacher-selected parts.** Clean all readable text and consider it together. Short files use one planning call. Larger files are split internally within MATERIAL_TOKEN_BUDGET (default 4,000 estimated tokens); each chunk is mapped to a short topic summary and 1-3 source quotes. Quotes are checked against their original chunk. The final planner sees every map, selects 1-3 ideas matching the teacher goal, and produces both documentOverview (big picture) and overview (lesson scope). Final step quotes are checked against the original full text. Mapping is prepared once per teacher build, before publication, not per student. A plan repair reuses its completed map. The teacher-facing part selector was removed.
+- **Validated plans.** Each new plan has 1-3 focused steps. Three is a maximum, not a target; narrow material can use one step. Existing in-memory published plans are not rewritten. New generations also include a bounded understandingGoal describing source-supported evidence of understanding; older plans without it remain accepted. Each step names an idea and cites an exact source quote of at most 25 words; titles have at most 8 words. Invalid quotes, duplicate sources and invalid plans are rejected. Plan validation can request one repair attempt.
+- **Teach before checking.** The tutor is instructed to explain the idea briefly in its source context, then ask a question about a relationship, interpretation or application. New steps do not require an analogy; follow-up examples are reserved for genuine difficulty. This applies to openings and transitions, including Socratic lessons. Prompts are read on every call. This is a prompt instruction; fluent, engaging teaching is not guaranteed by schema validation.
+- **Grade-aware tutoring.** audience.js supplies language and question guidance on every tutor reply. Maximums are 45 words for grades 1-6, 70 for grades 7-9, 100 for grades 10-12, and 120 for adults; an unspecified audience uses 70. The evaluator also retains its 80-word ceiling for ordinary replies and 120 for introductions/explanations, taking the smaller applicable limit. Younger students get familiar examples and concrete questions. These are product defaults, not validated reading-level measures. Runtime word limits are prompted, not enforced by truncation.
+- **Check, then reply.** Open-text answers are classified as understood, keep_going, no_attempt or off_file before the tutor responds. App state controls progress; the tutor does not decide whether to advance. Off-file questions are redirected to the material.
+- **Attempt ladder.** Wrong/partial answers and no-answer turns both count. Attempt 1 targets the gap with a brief clarification; attempt 2 hints; attempt 3 explains a missing connection and checks it. At attempt 4 the student can try again or move on. An explicit request for explanation has its own no_attempt branch. The fourth-turn choice is unchanged; earlier feedback now responds to the actual question and answer. Teaching quality still requires human review.
+- **Stop is transactional.** Aborting a reply leaves server progress and history unchanged. The input is restored; the current client can retain already streamed text as an unsaved stopped fragment.
+- **Per-session state and publishing.** Teacher drafts and student chats are isolated by session identifiers. Publishing copies a plan under a link id; rebuilding does not change the old published copy. Repeated publication of the same draft returns the same link. State is bounded and held in memory, with eviction of old entries. Requests without a session header use a shared default for tools/tests.
+- **Mock mode.** AI_MODE=mock uses scripted responses without provider calls. It supports UI work; its replies do not demonstrate the current teaching quality.
 
+## Teacher review flow (implemented 4 November)
 
-## Hosting (open: two options recorded)
+Build -> welcome and overview -> Let's begin -> teaching chat -> Publish. The welcome opens automatically after a successful build. Its title and two-sentence lesson overview are produced in the existing plan call; topics come from the prepared step titles. For small files there is no separate summary call; long files require bounded mapping calls before the final plan. Let's begin starts the first teaching question, avoiding questions before the student has context. Publish creates a link without an AI call and needs no separate approval state. Mobile switches to Preview when the welcome is ready. The welcome keeps the Begin action and any error/stop notice if starting the tutor fails. Restart returns to the welcome; existing active chats resume. A whole-lesson simulation was suggested, but is not implemented: a real tutor run costs calls; a future scripted demo must be labeled and cannot establish teaching quality.
 
-Both options satisfy the assignment's requirement for a live front end and back end. Neither is chosen yet.
+## Agreed next product direction (not implemented)
 
-**Option A: Render, one web service (current `render.yaml`).**
-- One process serves the built client and the API. No cross-origin setup.
-- Free tier sleeps when idle; the first request after a pause is slow.
-- Server state is in memory. A sleep or restart loses lesson progress until persistence is added.
-- Limits to check before relying on them: free-tier request duration and request size.
+- **Four lesson parts:** introduction, learning the material, practice exercises, and a short independent test with results and explanations. Duration should affect the amount of content and practice while retaining all four parts.
+- **Answer formats:** open text, single-answer multiple choice, and true/false cards. Select formats to suit the learning goal; introduce the activity structure and multiple choice first, then true/false. Current chat accepts open text only.
+- **Explicit activities:** represent content, answer format, feedback and progression in lesson data. The app should control scoring and phase transitions; the tutor explains and helps around those activities. The concrete schema and scoring rules are still to be designed.
+- **Teacher chooses duration.** Agreed that lessons have a timer. Proposed setup choices are 5, 15 and 30 minutes plus Custom, with a phase breakdown before starting. Exact presets, counts and allocations are provisional, not validated estimates.
+- **Timer behavior proposed:** start on Start lesson, track active time, allow pausing, and preserve progress at expiry with Finish now or Keep learning. Final pause, expiry, overtime and test-submission rules still need implementation decisions.
+- **Current duration limitation:** rules.timeLimit is a string passed to the tutor and shown in the UI. It does not currently create a timer, change the bounded 1-3-step schema, budget activities, or verify a lesson's actual duration. A requested 15-minute lesson is not a measured 15-minute experience.
 
-**Option B: Vercel (client) + Railway (Node API) + Supabase (Postgres and file storage).**
-- Persistence is built in: lesson and progress survive restarts.
-- Two deploys and cross-origin settings to maintain.
-- Free Supabase projects pause after inactivity, a risk during reviewer access. Needs a paid plan or a host that stays up during review.
-- Keeps the AI key and database access on the server; the reviewer's key is never stored.
-- Persistence would come after the teacher flow works, not before.
+## Hosting and rollout
 
-**Decide before:** the first public deploy. Criteria: reviewer access during review, lesson progress across restarts, and the free-tier limits above.
+Render's single-service Blueprint is the configured deployment path. render.yaml currently targets main with autoDeploy: true, builds with npm ci && npm run build, and starts with npm start. Gemini migration deployment has not been verified in this session. Before deployment, configure GEMINI_API_KEY and ship client/server together because the request header changed.
 
-## Not decided yet
+A server restart or memory eviction loses drafts, published links and student progress. The previously considered Vercel/Railway/Supabase arrangement is an alternative, not implemented persistence. Hosting availability, cold starts and deployment settings need verification on the actual service.
 
-- [TODO: AI provider and model]
-- [TODO: interactive lesson output: in-app preview, shareable link, or exported file]
-- [TODO: teacher flow design]
-- [TODO: student chat design]
-- [TODO: per-request API key handling]
+## Known weaknesses and omissions
 
-## Known weaknesses
+- Document mapping is lossy: summaries can omit nuance even though every chunk is considered and exact source quotes are checked. Preparation is bounded to 64,000 estimated text tokens, at most 16 mapping chunks and a 24,000-estimated-token combined map. Inputs exceeding bounds fail explicitly. Estimates are conservative character heuristics, not a Gemini tokenizer. Long builds take more provider calls and latency; this is whole-document coverage, not a promise of lower total cost. Student-time background processing is still not implemented.
 
-- [TODO]
+- Model output can remain abstract, repetitive or poorly matched to a grade despite the prompt. Understanding goals are model-written and need semantic review. Human review is required; a smoke-test pass does not establish teaching quality.
+- Rebuilding clears the client preview and resets chat before the replacement plan succeeds. A failed build can lose the previous working lesson.
+- No timer, phase-based activities, multiple choice, true/false cards, independent test or test score exists yet.
+- No accounts or authorization boundary. Source quotes reach the browser in chat state even when the UI does not render them; student presentation is not a permissions model.
+- No persistence, OCR, full interface localization, comprehensive mobile check or deployment verification in this session.
+- Automated tutor checks use heuristics. They cannot establish factual grounding, good examples, natural language or age suitability. Full Gemini regression evaluation after the latest prompt edits remains pending.
 
-## What I would do with four more hours
+## Verification evidence
 
-- [TODO]
+- **Release check, 4 November:** exported committed application code to a fresh temporary directory with no .env, ignored dev tools or local output. npm ci from the lockfile succeeded; all 116 clean-export tests passed and the production build passed. A production-mode smoke test served the built frontend and assets, healthy API, 204 empty chat and disabled dev routes. The workspace has four additional ignored dev-tool tests (120 total). Credential checks found no local key values or key-shaped credentials in Git-visible files. Render secrets and the deployed browser journey remain unverified.
 
-## How I know it works
+- **4 November, whole-document preparation:** 120 tests passed and the final production build passed. New tests cover final-page evidence, source-checked maps, bounded retries, map reuse, no duplicated raw text in the final request, incomplete-extraction refusal and no publication after a late mapping failure. Live synthetic ten-page review mapped both internal sections and selected source evidence from pages 9-10; the document overview acknowledged the early and late topics. The current dev server on port 5173 serves the new teacher UI with no part selector. This is not a visual walkthrough or verification of the original uploaded file.
 
-- `npm test` (43 unit tests) and `npm run build` pass.
-- **check.md eval** (`npm run eval:check`): a 10-row golden dataset, labelled by a domain expert, run 3 times each against the real model. Results are saved with the prompt's commit.
-  - Baseline at `164b1f6`: 8/10. Re-scoring the same results under the new rule gives 9/10. The new `no_attempt` label, plus that rule change, gives 10/10 at `4680baf`. The rule change accounts for one row, and the prompt change for one row.
-  - Row 6 (a request to be told the answer is right) is now labelled `no_attempt`. It passes the rule, but the label is wrong for this message. It is open for the tutor eval.
-- Tutor behavior (`tutor.md`) is not evaluated yet. Its output is free text, so it needs rule checks and rubric review rather than exact matches.
-- `no_attempt` has no tutor branch yet. The chat treats it as `open`, which re-asks the opening question.
+- **4 November, welcome and shorter lessons:** 117 software tests passed, including introduction validation, public welcome metadata and no chat progress before Begin. Production build passed. A live sample generated a two-sentence overview and three steps, with valid source quotes, on its first attempt. Background preparation of later material is not implemented.
+
+- **4 November, concise-chat iteration:** 115 software tests passed and the production build passed. A new sample plan generated all step understanding goals and passed validation on its first attempt. The focused live review passed six classifier cases plus opening, partial feedback and transition checks. Reviewed Hebrew replies were 35, 24 and 34 words and stayed with the passage without unrelated analogies. The fixture is a synthetic reconstruction, not the original uploaded document, and one run is not a full regression evaluation. The earlier structurally passing report had failed content review for unnecessary analogies; it was retained and the conflict fixed.
+
+- **4 November, teacher-flow simplification:** npm test passed 108 tests and the final production build passed in the current workspace. This verifies regressions/buildability; a browser walkthrough of the new flow remains pending. No provider calls were made for this change.
+
+- **3 November 2026:** npm test passed 108 tests, including the local ignored dev-tool suite. This was the working tree, not a clean clone; a clean checkout can have a different count. The latest production build passed earlier in the migration, before the later audience changes. Neither check was rerun for this documentation-only update.
+- Gemini key check succeeded; the sample lesson passed source/plan validation on its first attempt. Live tutor opening smoke tests passed their automated rules; reports are in ignored tests/evals/results. Later direct grade-comparison calls exercised the adapter but did not create a scored dataset. These are limited checks, not a full behavior evaluation.
+- Historical Groq classifier results: 8/10 at 164b1f6; rescoring under a changed rule gave 9/10; the no_attempt prompt and rule changes yielded 10/10 at 4680baf. These results are not Gemini evidence. The label for the requested-confirmation row remains a review concern.
+- This review inspected code and docs on 4 November. It did not run live API calls, browser tests, deployment tests or a fresh full suite.
+
+## Next focused work
+
+1. Define the activity schema, four phases, scoring, duration budgets and timer behavior; add a teacher duration control and student activities.
+2. Preserve the current lesson when a replacement build fails.
+3. Re-run Gemini classifier and tutor datasets, adding comparisons across grades, opening/transition quality and short/long lesson budgets. Record failures and human review alongside automatic results.
+4. Verify the production build and deployment, mobile/RTL behavior, Stop and key handling before sharing the release.
