@@ -213,8 +213,10 @@ async function streamTutorReply({ apiKey, model, fetchImpl, rules, status, step,
   const reader = response.body.getReader();
   let buffer = '';
   let full = '';
+  let finished = false;
   for (;;) {
     const { value, done } = await reader.read();
+    signal?.throwIfAborted();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     let end;
@@ -226,7 +228,12 @@ async function streamTutorReply({ apiKey, model, fetchImpl, rules, status, step,
       if (data === '[DONE]') return finish(full);
       let delta;
       try {
-        delta = JSON.parse(data).choices?.[0]?.delta?.content;
+        const choice = JSON.parse(data).choices?.[0];
+        if (choice?.finish_reason) {
+          if (choice.finish_reason !== 'stop') throw new ProviderError('Gemini did not finish the reply. Retry.');
+          finished = true;
+        }
+        delta = choice?.delta?.content;
       } catch {
         throw new ProviderError('Gemini sent an unreadable stream. Retry.');
       }
@@ -236,6 +243,7 @@ async function streamTutorReply({ apiKey, model, fetchImpl, rules, status, step,
       }
     }
   }
+  if (!finished) throw new ProviderError('Gemini stopped before completing the reply. Retry.');
   return finish(full);
 
   function finish(text) {

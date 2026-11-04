@@ -120,6 +120,25 @@ test('Gemini permission errors are safe and actionable', async () => {
     error instanceof ProviderError && /Settings/.test(error.message) && !/secret/.test(error.message));
 });
 
+test('stream requires a completion marker or a successful finish reason', async () => {
+  const text = 'data: {"choices":[{"delta":{"content":"A reply."}}]}\n\n';
+  for (const ending of ['', 'data: [DONE]\n\n', 'data: {"choices":[{"finish_reason":"stop","delta":{}}]}\n\n',
+    'data: {"choices":[{"finish_reason":"length","delta":{}}]}\n\n']) {
+    const ai = createAI({ apiKey: 'test', fetchImpl: async () => new Response(text + ending) });
+    const reply = ai.replyStream({ rules: {}, step: { title: 't', source: 's' }, onChunk() {} });
+    if (!ending || ending.includes('length')) await assert.rejects(reply, ProviderError);
+    else assert.equal(await reply, 'A reply.');
+  }
+});
+
+test('Stop remains an abort rather than an incomplete-stream error', async () => {
+  const controller = new AbortController();
+  const ai = createAI({ apiKey: 'test', fetchImpl: async () =>
+    new Response('data: {"choices":[{"delta":{"content":"Partial"}}]}\n\n') });
+  await assert.rejects(ai.replyStream({ rules: {}, step: { title: 't', source: 's' },
+    signal: controller.signal, onChunk() { controller.abort(); } }), { name: 'AbortError' });
+});
+
 
 test('the tutor receives the current and next understanding goals', async () => {
   let payload;
