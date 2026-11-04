@@ -1,5 +1,5 @@
-# Original assignment
-/docs/ASSIGNMENT.md
+# Local reference material, not part of the submission
+/docs/
 
 # Dependencies and build
 node_modules/
@@ -12,7 +12,6 @@ dist/
 tests/live/results/
 
 # Local notes and eval output not meant for the repo
-docs/parked/
 tests/evals/results/tutor-*
 
 # Local prompt playground and its tests: a personal dev tool, not part of the submission
