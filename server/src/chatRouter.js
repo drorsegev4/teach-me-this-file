@@ -17,8 +17,10 @@ export function createChatRouter({ chat, aiFor }) {
   const router = Router();
 
   router.get('/', (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const state = chat.view(sessionKey(req));
-    if (!state) return res.status(404).json({ error: 'No lesson has started yet.' });
+    // An unstarted or expired session is a normal empty state, not a missing route.
+    if (!state) return res.status(204).end();
     res.json(state);
   });
 

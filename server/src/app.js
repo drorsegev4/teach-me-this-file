@@ -9,7 +9,7 @@ import { createPlanStore } from './planStore.js';
 import { isValidSessionId, SESSION_HEADER } from './session.js';
 
 const clientDist = fileURLToPath(new URL('../../dist/', import.meta.url));
-export const KEY_HEADER = 'X-Groq-Api-Key';
+export const KEY_HEADER = 'X-AI-Api-Key';
 
 // AI_MODE=mock serves a saved plan and scripted replies instead of calling the provider (for UI work offline).
 // MOCK_DELAY_MS slows the scripted reply down so Stop can be tried by hand.
@@ -17,13 +17,13 @@ function defaultAI() {
   if (process.env.AI_MODE === 'mock') {
     return createMockAI(JSON.parse(readFileSync(new URL('../fixtures/mock-lesson-plan.json', import.meta.url), 'utf8')), { delayMs: Number(process.env.MOCK_DELAY_MS) || 30 });
   }
-  return createAI({ apiKey: process.env.GROQ_API_KEY });
+  return createAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
 // The reviewer's key travels in a header for one request. It is used for that call only and is
-// never stored or logged. Without it, the host's GROQ_API_KEY is used.
+// never stored or logged. Without it, the host's GEMINI_API_KEY is used.
 function reviewerKey(req) {
-  return req.get(KEY_HEADER)?.trim() || process.env.GROQ_API_KEY;
+  return req.get(KEY_HEADER)?.trim() || process.env.GEMINI_API_KEY;
 }
 
 // A local prompt playground, kept out of the repository. It is mounted only when the file exists and is enabled.
@@ -50,7 +50,7 @@ export function createApp({ ai: injectedAI, devTools = Boolean(dev?.devToolsEnab
     next();
   });
   app.use(express.json({ limit: '16kb' }));
-  app.get('/api/health', (_req, res) => res.json({ ok: true, hostKey: Boolean(process.env.GROQ_API_KEY) }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, hostKey: Boolean(process.env.GEMINI_API_KEY) }));
   app.use('/api/lessons', createLessonsRouter({ store, chat, aiFor }));
   app.use('/api/chat', createChatRouter({ chat, aiFor }));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API route.' }));

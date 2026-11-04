@@ -140,7 +140,8 @@ export function createChatService({ ai, store }) {
       }
 
       const tutor = {
-        id: base.messages.length + (student ? 2 : 1), role: 'tutor', text: replyText, stepId: id, quote: step.source,
+        id: base.messages.length + (student ? 2 : 1), role: 'tutor', text: replyText,
+        stepId: advanced && nextStep ? stepId(base.index + 1) : id, quote: (advanced && nextStep ? nextStep : step).source,
         status: check.status, attempt,
       };
       if (student) base.messages.push(student);

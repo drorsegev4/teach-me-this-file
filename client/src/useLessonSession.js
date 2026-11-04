@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildLesson, getChat, getLesson, publishLesson, streamTurn } from './api.js';
-import { fullGoal } from './goalRules.js';
 import { storedSessionId } from './sessionId.js';
 
 // Owns one lesson session in the browser: the server's chat state, the streaming reply and the draft.
@@ -15,9 +14,8 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [openSource, setOpenSource] = useState(null);
   const [fileName, setFileName] = useState('');
-  // What the teacher submitted ({ file, prompt }), kept so the lesson can be rebuilt from an edited goal.
+  // What the teacher submitted ({ file, prompt }), kept for retrying a build.
   const [brief, setBrief] = useState(null);
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState('');
@@ -26,10 +24,11 @@ export function useLessonSession({ apiKey, lessonId = null }) {
   const [lesson, setLesson] = useState({ status: lessonId ? 'loading' : 'none', info: null });
   // The teacher's link for the lesson they built: { id } once published.
   const [published, setPublished] = useState(null);
-  // What part of the file the lesson was built from, as the server reported it.
+  // Whole-document coverage and extraction details reported by the server.
   const [material, setMaterial] = useState(null);
   // The plan as built ({ rules, steps }), kept so the teacher sees it even before the first reply arrives or after it fails.
   const [plan, setPlan] = useState(null);
+  const [previewRequested, setPreviewRequested] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const controller = useRef(null);
@@ -84,12 +83,13 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     }
   }
 
-  // Builds the lesson from the teacher's file and goal, then opens it as a fresh student preview.
-  async function build({ changes = [], part = 0, ...rest }) {
+  // Builds the plan and overview together, then opens the welcome before any tutor question.
+  async function build({ ...rest }) {
     if (building || streaming) return;
-    const next = { ...rest, changes, part };
+    const next = { ...rest };
     setBrief(next);
     setBuilding(true);
+    setPreviewRequested(false);
     setBuildError('');
     setPublished(null);
     setPublishError('');
@@ -98,34 +98,25 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     setError('');
     setNotice('');
     setStoppedReply('');
-    setOpenSource(null);
     setChat(null);
     try {
-      const built = await buildLesson({ file: next.file, prompt: fullGoal(next), part: next.part, apiKey: apiKey.trim(), sessionId });
+      const built = await buildLesson({ file: next.file, prompt: next.prompt, apiKey: apiKey.trim(), sessionId });
       setFileName(built.fileName ?? '');
       setMaterial(built.material ?? null);
-      setPlan({ rules: built.rules, steps: built.steps });
+      setPlan({ rules: built.rules, steps: built.steps, introduction: built.introduction });
       setBuilding(false);
-      run({ type: 'start' });
+      setPreviewRequested(true);
     } catch (failure) {
       setBuildError(failure.message);
       setBuilding(false);
     }
   }
 
-  // The teacher asks for a change to the lesson. The file and goal stay; the change is added and the lesson is rebuilt.
-  function requestChange(text) {
-    if (brief) build({ ...brief, changes: [...brief.changes, text] });
-  }
-
-  // The teacher picks another part of a long file; the goal and change requests stay.
-  function choosePart(part) {
-    if (brief) build({ ...brief, part });
-  }
-
-  // The student presses Start on the landing card.
+  // Begin is explicit: the welcome itself uses no tutor call or progress state.
   function startLesson() {
-    if (!streaming) run({ type: 'start', lessonId });
+    if (streaming || building || publishing || controller.current) return;
+    setPreviewRequested(true);
+    run(lessonId ? { type: 'start', lessonId } : { type: 'start' });
   }
 
   // The teacher saves the lesson they built under a link.
@@ -142,16 +133,20 @@ export function useLessonSession({ apiKey, lessonId = null }) {
     }
   }
 
-  // Starts the student preview over on the same lesson plan.
+  // Return to the welcome. The next Begin starts over on the same prepared plan.
   function restartPreview() {
-    if (streaming || building) return;
+    if (streaming || building || publishing) return;
+    setPreviewRequested(true);
+    if (!plan && chat) setPlan({ rules: chat.rules, steps: chat.steps });
     setChat(null);
     setStoppedReply('');
-    setOpenSource(null);
-    run(lessonId ? { type: 'start', lessonId } : { type: 'start' });
+    setDraft('');
+    setError('');
+    setNotice('');
   }
 
   function newLesson() {
+    setPreviewRequested(false);
     setChat(null);
     setBrief(null);
     setMaterial(null);
@@ -180,8 +175,8 @@ export function useLessonSession({ apiKey, lessonId = null }) {
 
   return {
     chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice,
-    openSource, setOpenSource, apiKey, fileName, material, plan, lessonId, lesson, startLesson,
+    apiKey, fileName, material, plan, previewRequested, lessonId, lesson, startLesson,
     published, publishing, publishError, publish,
-    brief, building, buildError, build, choosePart, requestChange, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
+    brief, building, buildError, build, restartPreview, newLesson, send, moveOn, stop: () => controller.current?.abort(),
   };
 }

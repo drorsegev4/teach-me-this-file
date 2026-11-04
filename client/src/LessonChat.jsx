@@ -3,7 +3,7 @@ import { languageDirection } from './direction.js';
 // The student's side of the lesson: progress, the conversation, and the answer box.
 // Layout uses logical classes (ms-, rounded-es-, rounded-ee-) so it mirrors when the lesson is right-to-left.
 export default function LessonChat({ session }) {
-  const { chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice, openSource, setOpenSource, restartPreview, send, moveOn, stop } = session;
+  const { chat, partial, stoppedReply, pending, draft, setDraft, streaming, error, setError, notice, restartPreview, send, moveOn, stop } = session;
 
   const steps = chat?.steps ?? [];
   const total = steps.length;
@@ -12,8 +12,6 @@ export default function LessonChat({ session }) {
   const currentStep = steps[currentIndex];
   const rulesLine = chat && [chat.rules.audience, chat.rules.language, chat.rules.method, chat.rules.timeLimit].filter(Boolean).join(' · ');
   const direction = languageDirection(chat?.rules?.language);
-  // The passage behind a message is for the teacher checking the lesson. A student on a published link does not see it.
-  const showSource = !session.lessonId;
 
   return <div dir={direction} className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-4 py-6 lg:overflow-y-auto">
     <header className="mb-4">
@@ -45,10 +43,6 @@ export default function LessonChat({ session }) {
         ? <p key={message.id} dir="auto" className="ms-auto max-w-[85%] rounded-2xl rounded-ee-sm bg-teal-700 px-4 py-2 text-sm text-white">{message.text}</p>
         : <div key={message.id} className="max-w-[90%]">
           <p dir="auto" className="rounded-2xl rounded-es-sm bg-white px-4 py-2 text-sm leading-6 shadow-sm">{message.text}</p>
-          {showSource && message.quote && <button className="-mb-1 mt-1 py-2 pe-3 text-xs text-teal-700 underline" aria-expanded={openSource === message.id} onClick={() => setOpenSource(openSource === message.id ? null : message.id)}>
-            {openSource === message.id ? 'Hide source' : 'Show source'}
-          </button>}
-          {showSource && openSource === message.id && <blockquote dir="auto" className="mt-1 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-stone-600">“{message.quote}”</blockquote>}
         </div>)}
       {pending && <p dir="auto" className="ms-auto max-w-[85%] rounded-2xl rounded-ee-sm bg-teal-700/80 px-4 py-2 text-sm text-white">{pending}</p>}
       {stoppedReply && !streaming && <div className="max-w-[90%]">

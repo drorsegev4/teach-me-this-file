@@ -8,7 +8,7 @@ import { generateLessonPlan, PlanError } from '../../server/src/lessonPlan.js';
 const documentText = readFileSync(new URL('../../server/fixtures/sample-document.txt', import.meta.url), 'utf8');
 const teacherPrompt = 'Teach this to 7th graders, in English. Be Socratic. Keep it under 15 minutes.';
 
-const ai = createAI({ apiKey: process.env.GROQ_API_KEY });
+const ai = createAI({ apiKey: process.env.GEMINI_API_KEY });
 const started = Date.now();
 let outcome;
 try {

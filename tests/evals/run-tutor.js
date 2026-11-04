@@ -18,14 +18,14 @@ const material = readFileSync(new URL(`../../${dataset.material}`, import.meta.u
 for (const { source } of [dataset.step, dataset.nextStep]) {
   if (!material.includes(source)) throw new Error(`A step source is not an exact quote from the material: ${source.slice(0, 40)}`);
 }
-if (!process.env.GROQ_API_KEY) throw new Error('Set GROQ_API_KEY in .env. The eval calls the real model.');
+if (!process.env.GEMINI_API_KEY) throw new Error('Set GEMINI_API_KEY in .env. The eval calls the real model.');
 
 const only = flag('only')?.split(',').map(Number);
 const runs = Number(flag('runs')) || dataset.thresholds.runsPerScenario;
 const paceMs = Number(process.env.PACE_MS) || 8000;
 const scenarios = dataset.scenarios.filter(scenario => !only || only.includes(scenario.id));
 
-const ai = createAI({ apiKey: process.env.GROQ_API_KEY });
+const ai = createAI({ apiKey: process.env.GEMINI_API_KEY });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const lessonFor = scenario => ({ rules: scenario.rules ?? dataset.rules, answerGroups: dataset.answerGroups, step: dataset.step });
 

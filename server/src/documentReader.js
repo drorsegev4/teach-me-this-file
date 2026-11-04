@@ -1,7 +1,7 @@
 // Runs in a child process (see documents.js). A native crash here cannot take the server down.
 import mammoth from 'mammoth';
 
-// A lesson uses only the start of a document, so a very long PDF is read until this much text and no further.
+// Bound extraction work. The lesson route refuses readAll=false rather than teaching only this prefix.
 // That bounds the time and memory of reading a 500-page file.
 const READ_CHARS_LIMIT = 150000;
 

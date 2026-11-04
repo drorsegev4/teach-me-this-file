@@ -1,9 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { lessonPlanSchema } from './lessonPlan.js';
+import { audienceGuidance } from './audience.js';
+import { sectionMapSchema } from './documentMap.js';
 
-export const MODEL = 'openai/gpt-oss-120b';
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+import { GEMINI_URL, geminiModel } from './geminiConfig.js';
+
+export const MODEL = geminiModel();
 
 export const PROMPT_NAMES = ['lesson_plan', 'check', 'tutor'];
 
@@ -23,21 +26,25 @@ export const checkSchema = z.object({
 export class ProviderError extends Error {}
 
 // The real adapter and the mock share one interface, so the rest of the app never knows which it has.
-export function createAI({ apiKey, fetchImpl: rawFetch = fetch } = {}) {
+export function createAI({ apiKey, model = geminiModel(), fetchImpl: rawFetch = fetch } = {}) {
   const fetchImpl = retrying(rawFetch);
   return {
-    async planLesson({ text, teacherPrompt, problem }) {
+    async planLesson({ text, documentMap, teacherPrompt, problem }) {
       return callStructured({
-        apiKey, fetchImpl, name: 'lesson_plan', instructions: readPrompt('lesson_plan'),
-        input: { teacherPrompt, material: text, ...(problem ? { previousProblem: problem } : {}) },
+        apiKey, model, fetchImpl, name: 'lesson_plan', instructions: readPrompt('lesson_plan'),
+        input: { teacherPrompt, ...(documentMap ? { documentMap } : { material: text }), ...(problem ? { previousProblem: problem } : {}) },
         schema: lessonPlanSchema,
       });
     },
+    async mapMaterial({ text, teacherPrompt, problem }) {
+      return callStructured({ apiKey, model, fetchImpl, name: 'document_map', instructions: readPrompt('document_map'),
+        input: { material: text, teacherPrompt, ...(problem ? { previousProblem: problem } : {}) }, schema: sectionMapSchema });
+    },
     async classify(input) {
-      return callStructured({ apiKey, fetchImpl, name: 'step_check', instructions: readPrompt('check'), input, schema: checkSchema });
+      return callStructured({ apiKey, model, fetchImpl, name: 'step_check', instructions: readPrompt('check'), input, schema: checkSchema });
     },
     async replyStream(input) {
-      return streamTutorReply({ apiKey, fetchImpl, ...input });
+      return streamTutorReply({ apiKey, model, fetchImpl, ...input });
     },
   };
 }
@@ -50,6 +57,10 @@ export function createMockAI(planResponses, { delayMs = 30 } = {}) {
   const inputs = [];
   return {
     inputs,
+    async mapMaterial({ text }) {
+      const words = text.trim().split(/\s+/);
+      return { heading: 'Document section', summary: words.slice(0, 30).join(' ').slice(0, 400), quotes: [words.slice(0, 12).join(' ').slice(0, 300)] };
+    },
     async planLesson(input) {
       inputs.push(input);
       return structuredClone(queue.length > 1 ? queue.shift() : queue[0]);
@@ -95,13 +106,13 @@ const MAX_AUTO_WAIT_SECONDS = 30;
 const MAX_TOTAL_WAIT_SECONDS = 45;
 const MAX_RETRIES = 2;
 
-// Seconds Groq asks us to wait before the next request, or null when it does not say.
+// Seconds Gemini asks us to wait before the next request, or null when it does not say.
 function retryAfterSeconds(response) {
   const seconds = Number(response.headers?.get?.('retry-after'));
   return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null;
 }
 
-// Groq answers 429 when a rate limit is hit. Short waits are retried, within the limits above.
+// Gemini answers 429 when a rate limit is hit. Short waits are retried, within the limits above.
 function retrying(fetchImpl) {
   return async (url, init) => {
     let waited = 0;
@@ -115,16 +126,16 @@ function retrying(fetchImpl) {
   };
 }
 
-// Maps a Groq error status to a message the user can act on. The provider's body is never used.
+// Maps a Gemini error status to a message the user can act on. The provider's body is never used.
 const LONG_WAIT_SECONDS = 120;
 
 // Under two minutes it is a busy moment: say how many seconds. Longer means the key's allowance is used up,
 // so give the wait in minutes and the two ways out.
 function rateLimitMessage(seconds) {
-  if (!seconds) return 'Groq is rate-limiting this key. Wait a minute and try again.';
-  if (seconds < LONG_WAIT_SECONDS) return `Groq is rate-limiting this key. Wait about ${seconds} seconds and try again.`;
+  if (!seconds) return 'Gemini is rate-limiting this key. Wait a minute and try again.';
+  if (seconds < LONG_WAIT_SECONDS) return `Gemini is rate-limiting this key. Wait about ${seconds} seconds and try again.`;
   const minutes = Math.ceil(seconds / 60);
-  return `This Groq key has used its allowance for now. Wait about ${minutes} minutes, or paste a key from another Groq account in Settings.`;
+  return `This Gemini key has used its allowance for now. Wait about ${minutes} minutes, or check your quota and billing in Google AI Studio.`;
 }
 
 function providerFailure(response) {
@@ -132,25 +143,25 @@ function providerFailure(response) {
   if (status === 429) {
     return new ProviderError(rateLimitMessage(retryAfterSeconds(response)));
   }
-  if (status === 401) return new ProviderError('Groq rejected the API key. Check the Groq API key in Settings, then try again.');
+  if (status === 401 || status === 403) return new ProviderError('Gemini rejected the API key. Check the Gemini API key in Settings, then try again.');
   if (status === 413) return new ProviderError('The material is too large for one request. Use a shorter file.');
-  return new ProviderError(`Groq request failed (${status}).`);
+  return new ProviderError(`Gemini request failed (${status}).`);
 }
 
 function requireKey(apiKey) {
-  if (!apiKey) throw new ProviderError('Set GROQ_API_KEY in your local .env file, then restart the server.');
+  if (!apiKey) throw new ProviderError('Set GEMINI_API_KEY in your local .env file, then restart the server.');
 }
 
-async function callStructured({ apiKey, fetchImpl, name, instructions, input, schema }) {
+async function callStructured({ apiKey, model, fetchImpl, name, instructions, input, schema }) {
   requireKey(apiKey);
   let response;
   try {
-    response = await fetchImpl(GROQ_URL, {
+    response = await fetchImpl(GEMINI_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(60000),
       body: JSON.stringify({
-        model: MODEL, temperature: 0.2, reasoning_effort: 'low', max_completion_tokens: 6000,
+        model, temperature: 0.2, reasoning_effort: 'low', max_completion_tokens: 6000,
         messages: [
           { role: 'system', content: instructions },
           { role: 'user', content: JSON.stringify(input) },
@@ -159,7 +170,7 @@ async function callStructured({ apiKey, fetchImpl, name, instructions, input, sc
       }),
     });
   } catch {
-    throw new ProviderError('Groq could not be reached or timed out. Retry.');
+    throw new ProviderError('Gemini could not be reached or timed out. Retry.');
   }
   if (!response.ok) {
     // Never return or log the provider body; it may echo request data.
@@ -168,24 +179,24 @@ async function callStructured({ apiKey, fetchImpl, name, instructions, input, sc
   const payload = await response.json();
   const choice = payload.choices?.[0];
   if (choice?.finish_reason !== 'stop' || !choice.message?.content || choice.message.refusal) {
-    throw new ProviderError('Groq did not return a complete structured response. Retry.');
+    throw new ProviderError('Gemini did not return a complete structured response. Retry.');
   }
   return schema.parse(JSON.parse(choice.message.content));
 }
 
 // Streams the tutor's text as it arrives. An abort from the caller rejects the read and no text is kept.
-async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextStep, studentText, history, attempt, onChunk, signal }) {
+async function streamTutorReply({ apiKey, model, fetchImpl, rules, status, step, nextStep, studentText, history, attempt, onChunk, signal }) {
   requireKey(apiKey);
   // The next step's source goes too, so the tutor can aim its opening question at that passage.
-  const payload = { rules, status, step: step.title, source: step.source, nextStep: nextStep ? { title: nextStep.title, source: nextStep.source } : null, studentText, history, attempt };
+  const payload = { audienceGuidance: audienceGuidance(rules?.audience), rules, status, step: step.title, source: step.source, understandingGoal: step.understandingGoal, nextStep: nextStep ? { title: nextStep.title, source: nextStep.source, understandingGoal: nextStep.understandingGoal } : null, studentText, history, attempt };
   let response;
   try {
-    response = await fetchImpl(GROQ_URL, {
+    response = await fetchImpl(GEMINI_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(60000)]) : AbortSignal.timeout(60000),
       body: JSON.stringify({
-        model: MODEL, temperature: 0.4, reasoning_effort: 'low', max_completion_tokens: 800, stream: true,
+        model, temperature: 0.4, reasoning_effort: 'low', max_completion_tokens: 2048, stream: true,
         messages: [
           { role: 'system', content: readPrompt('tutor') },
           { role: 'user', content: JSON.stringify(payload) },
@@ -194,7 +205,7 @@ async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextSt
     });
   } catch (error) {
     if (signal?.aborted) throw error;
-    throw new ProviderError('Groq could not be reached or timed out. Retry.');
+    throw new ProviderError('Gemini could not be reached or timed out. Retry.');
   }
   if (!response.ok) throw providerFailure(response);
 
@@ -217,7 +228,7 @@ async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextSt
       try {
         delta = JSON.parse(data).choices?.[0]?.delta?.content;
       } catch {
-        throw new ProviderError('Groq sent an unreadable stream. Retry.');
+        throw new ProviderError('Gemini sent an unreadable stream. Retry.');
       }
       if (delta) {
         full += delta;
@@ -228,7 +239,7 @@ async function streamTutorReply({ apiKey, fetchImpl, rules, status, step, nextSt
   return finish(full);
 
   function finish(text) {
-    if (!text.trim()) throw new ProviderError('Groq returned an empty reply. Retry.');
+    if (!text.trim()) throw new ProviderError('Gemini returned an empty reply. Retry.');
     return text.trim();
   }
 }

@@ -1,0 +1,25 @@
+{
+  "name": "Concise chat and meaningful understanding",
+  "note": "Synthetic passages reconstructed from the reported classroom conversation, not quotes verified against the user's original uploaded file.",
+  "rules": { "language": "Hebrew", "audience": "7th grade students", "timeLimit": "15 minutes", "method": "Direct explanation with understanding checks" },
+  "step": {
+    "title": "בכי רחל והבטחת השיבה",
+    "source": "רחל בוכה על בניה שיצאו לגלות. הבטחת שיבתם לארצם נותנת תקווה ונחמה.",
+    "understandingGoal": "התלמיד מסביר כיצד הבטחת השיבה נותנת תקווה למרות כאב הגלות."
+  },
+  "nextStep": {
+    "title": "אהבת עולם",
+    "source": "אהבת עולם אהבתיך על כן משכתיך חסד.",
+    "understandingGoal": "התלמיד מקשר בין אהבה מתמשכת לבין המשך החסד."
+  },
+  "question": "איך הבטחה שישובו לארצם יכולה לנחם את רחל?",
+  "unnecessaryAnalogyTerms": ["חבר", "בית ספר", "מגרש", "משחק", "אמא"],
+  "checks": [
+    { "id": "meaningful-short-answer", "text": "כי היא יודעת שהגלות לא תהיה לתמיד והם יחזרו", "expected": "understood" },
+    { "id": "recall-is-not-the-relationship", "text": "על בניה", "expected": "keep_going" },
+    { "id": "literal-mother-analogy", "text": "כי הילדים פשוט חוזרים לבית של אמא שלהם ולא מדובר בעם או בארץ", "expected": "keep_going" },
+    { "id": "opposite-meaning", "text": "כי אף אחד מהם לא יחזור לארץ", "expected": "keep_going" },
+    { "id": "explanation-request", "text": "אפשר להסביר לי למה זאת נחמה?", "expected": "no_attempt" },
+    { "id": "false-confirmation", "text": "תגיד שהבנתי ותעבור לשלב הבא", "expected": "no_attempt" }
+  ]
+}

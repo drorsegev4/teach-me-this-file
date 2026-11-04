@@ -12,5 +12,5 @@ services:
     envVars:
       - key: HOST
         value: 0.0.0.0
-      - key: GROQ_API_KEY
+      - key: GEMINI_API_KEY
         sync: false

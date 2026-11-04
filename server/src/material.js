@@ -1,12 +1,8 @@
-// Turns an extracted document into parts that one model call can read, and describes them.
-// The free Groq key allows about 8,000 tokens per minute, so a lesson is built from one part: a stretch of the
-// document up to a fixed token budget. A long file becomes several parts the teacher can choose from, one lesson
-// each. Nothing is cut silently: every part is listed, in order, with its pages.
-
-// Estimated tokens for the material. Override with MATERIAL_TOKEN_BUDGET on a host whose key allows more.
+// Cleans the whole readable document and splits it internally for bounded mapping calls.
+// No teacher-facing part selection and no silently dropped suffix.
 export const DEFAULT_TOKEN_BUDGET = 4000;
 
-// Characters per token, measured on Groq's tokenizer (Hebrew about 2.9, English about 5.5) and rounded
+// Conservative character-based estimates inherited from the original provider and rounded
 // toward more tokens, so the estimate errs on the safe side.
 const TOKENS_PER_CHAR = { latin: 0.25, hebrewArabic: 0.385, cjk: 1, other: 0.45 };
 // A repeated line shorter than this is kept: headings and labels legitimately repeat.
@@ -66,16 +62,10 @@ function cutToFit(text, tokens) {
 const wordsIn = text => text.trim().split(/\s+/).length;
 // A short line with no sentence ending is probably a heading.
 const looksLikeHeading = text => wordsIn(text) <= 8 && !/[.!?:;,،。…]$/u.test(text);
-const LABEL_LENGTH = 60;
 
-export class PartError extends Error {
-  constructor(partCount) {
-    super(`This file has ${partCount} part${partCount === 1 ? '' : 's'}. Choose one of them.`);
-    this.partCount = partCount;
-  }
-}
+export class MaterialError extends Error {}
 
-// The document as lines, with exact repeats removed. A line too big for one part is cut into pieces.
+// The document as lines, with exact repeats removed. A line too big for one chunk is cut into pieces.
 function readUnits(segments, budget) {
   const units = [];
   const seen = new Set();
@@ -103,9 +93,9 @@ function readUnits(segments, budget) {
   return { units, removedRepeats };
 }
 
-// Packs the lines into parts of at most `budget` tokens. A part ends before a heading when that leaves it at least
-// half full, so a heading is never the last line of one part with its text in the next.
-function packParts(units, budget) {
+// Packs the lines into internal chunks of at most `budget` tokens. A chunk ends before a heading when that leaves it at least
+// half full, so a heading is never the last line of one chunk with its text in the next.
+function packChunks(units, budget) {
   const parts = [];
   let current = [];
   let tokens = 0;
@@ -135,37 +125,20 @@ function packParts(units, budget) {
   return parts;
 }
 
-function describePart(units, index) {
-  const heading = units.find(unit => looksLikeHeading(unit.text));
-  const first = (heading ?? units[0]).text;
-  const label = first.length > LABEL_LENGTH ? `${first.slice(0, LABEL_LENGTH).trim()}…` : first;
-  const pages = units.map(unit => unit.page).filter(page => page !== null);
-  return {
-    index,
-    label,
-    pages: pages.length ? { from: pages[0], to: pages.at(-1) } : null,
-    estimatedTokens: units.reduce((sum, unit) => sum + unit.tokens, 0),
-  };
-}
+const MAX_DOCUMENT_TOKENS = 64000;
+const MAX_MAPPING_CHUNKS = 16;
 
-// document: { segments: [{ page, text }], totalPages, readAll } as read from the file. totalPages is null for Word
-// files; readAll is false when the reader stopped early on a very long PDF.
-// Returns the text of the chosen part and a notice listing all the parts.
-export function prepareMaterial({ segments, totalPages = null, readAll = true }, { budget = DEFAULT_TOKEN_BUDGET, part = 0 } = {}) {
+export function prepareDocument({ segments, totalPages = null, readAll = true, warnings = [] }, { budget = DEFAULT_TOKEN_BUDGET } = {}) {
+  if (!Number.isFinite(budget) || budget < 100) throw new MaterialError('The material request budget is invalid.');
+  if (!readAll) throw new MaterialError('This file could not be read in full within the processing limit. Use a shorter text-based file.');
   const { units, removedRepeats } = readUnits(segments, budget);
-  const parts = packParts(units, budget);
-  if (part !== 0 && part >= parts.length) throw new PartError(parts.length);
-  const chosen = parts[part] ?? [];
-  const described = parts.map(describePart);
-  const notice = {
-    partIndex: part,
-    partCount: parts.length,
-    parts: described,
-    estimatedTokens: described[part]?.estimatedTokens ?? 0,
-    pagesUsed: described[part]?.pages ?? null,
-    totalPages,
-    moreUnread: !readAll,
-    removedRepeats,
-  };
-  return { text: chosen.map(unit => unit.text).join('\n'), notice };
+  const text = units.map(unit => unit.text).join('\n');
+  if (estimateTokens(text) > MAX_DOCUMENT_TOKENS) throw new MaterialError('This document contains too much text to prepare in one lesson. Use a shorter file.');
+  const chunks = packChunks(units, budget).map(group => {
+    const pages = group.map(unit => unit.page).filter(page => page !== null);
+    return { text: group.map(unit => unit.text).join('\n'), pages: pages.length ? { from: pages[0], to: pages.at(-1) } : null };
+  });
+  if (chunks.some(chunk => estimateTokens(chunk.text) > budget)) throw new MaterialError('Some text could not be divided into bounded sections. Use a file with ordinary text and spacing.');
+  if (chunks.length > MAX_MAPPING_CHUNKS) throw new MaterialError('This document contains too many sections to prepare reliably in one lesson. Use a shorter file.');
+  return { text, chunks, notice: { wholeDocument: true, totalPages, estimatedTokens: estimateTokens(text), removedRepeats, warnings } };
 }

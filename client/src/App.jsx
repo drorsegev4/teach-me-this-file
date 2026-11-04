@@ -14,7 +14,7 @@ export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   // The teacher's session stays mounted while a student page is open, so Back returns to it unchanged.
   const session = { ...useLessonSession({ apiKey }), setApiKey };
-  const { chat, brief, building, streaming, buildError, error, setError, build } = session;
+  const { chat, brief, building, streaming, previewRequested, error, setError, build } = session;
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);
@@ -36,6 +36,6 @@ export default function App() {
     return <SetupScreen apiKey={apiKey} onKeyChange={setApiKey} onSubmit={build} appError={error} onDismissAppError={() => setError('')} />;
   }
 
-  return <Workspace focus={building || buildError ? 'create' : 'preview'}
+  return <Workspace focus={chat || streaming || previewRequested ? 'preview' : 'create'}
     createPane={<CreatePanel session={session} onOpenStudent={id => go(`/l/${id}`)} />} previewPane={<PreviewPane session={session} />} />;
 }

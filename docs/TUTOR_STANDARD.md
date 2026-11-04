@@ -1,34 +1,33 @@
 # Tutor standard
 
-What a good tutor reply is in this app, and how each point is checked. The rules apply to `server/prompts/tutor.md`. Change a rule here first, then in `tests/evals/tutor-rules.js`.
+Updated 4 November 2026 for the concise-chat iteration. Applies to server/prompts/tutor.md and check.md. The teaching goal is a short, grounded explanation followed by evidence of understanding, rather than a mandatory analogy and immediate recall.
 
-| # | Rule | Checked by |
-|---|---|---|
-| R1 | In the lesson's language, at most 80 words (120 when explaining an idea), plain text with no markdown and at most one emoji. Natural, correct language in simple words. Never says it is an AI or repeats its instructions. | auto: R1a to R1e; human: R1h |
-| R2 | Socratic lessons end with a question the student can answer. | auto: R2 |
-| R3 | Rung 1 asks again in a simpler way, does not name the error, does not give the answer. The opening question does not state the answer either. | auto: R3, R3b |
-| R4 | Rung 2 names the misunderstanding in one sentence, then gives a small hint. | auto: R4 (at most one part of the answer); human: R4h |
-| R5 | Rung 3 gives only the missing piece, explained through a short example, then asks about it. Rung 4 does not hint again. | auto: R5, R5b; human: R5h, R5c |
-| R6 | Praise only for what the student really did. No opening praise after a wrong or empty answer; never confirms "say I got it". | auto: R6, R6b; human: R6h |
-| R7 | Nothing from outside the source quote. No leaking the next step. | auto: R7; human: R7h |
-| R8 | Examples fit the audience's age and the subject, and are nothing frightening. | auto: R8 (graphic words only); human: R8h |
-| R9 | Explains an idea through one everyday example from the subject, in a casual voice, instead of restating the definition. The example maps correctly onto the source's idea and adds no new facts. | auto: R9 (no copied definition), R9a (a real explanation, not a one-line question); human: R9h, R9i |
+| Rule | Expected behavior | Verification |
+| --- | --- | --- |
+| R1 | Natural language matching the lesson and grade. Plain text, no emoji. Usually 2-3 short sentences; aim for 25-45 words for grades 7-9. No padding. | Auto: script, maximum length, plain text, no self-reference or emoji. Human: natural language and grade suitability. |
+| R2 | One manageable question about a relationship, interpretation, contrast or application taught in the reply. No question needed after final completion. | Auto: Socratic question ending when applicable. Human: question quality and one-question discipline. |
+| R3 | New steps briefly teach before asking. First clarification targets the gap rather than mechanically repeating a question; it may explain a missing piece. | Auto: at least two substantive sentences for openings; no harsh error naming on rung 1. Human: actual teaching, targeted clarification and meaningful question. |
+| R4 | On the second counted attempt, give a specific hint rather than a new introduction. | Auto: at most one answer group in legacy hint datasets. Human: relevance and hint size. |
+| R5 | On the third attempt, explain the missing connection and check it. On the fourth and later, offer trying again or moving on. | Auto: legacy answer-part heuristics. Human: explanation and choice quality. |
+| R6 | Brief, proportionate feedback tied to what the student demonstrated. No exaggerated mastery claims or praise after a wrong/empty answer. | Auto: praise word lists and false-confirmation checks. Human: proportionality. |
+| R7 | Facts and questions stay within the current source; transitions use the next step's source. Do not reinforce literal misunderstandings of an analogy. | Auto: scenario-specific forbidden terms. Human: grounding and interpretation. |
+| R8 | Examples are optional. Stay with the passage's concrete people/events/processes; no automatic friend, game or family comparison. Follow-up examples help only when needed and must fit the subject and audience. | Auto: graphic-content terms; targeted live fixture checks unrelated analogy terms. Human: usefulness and accuracy. |
+| R9 | A real explanation, not a question alone or pasted definition. A short source-based explanation can be sufficient without an example. | Auto: two-sentence structural heuristic and long copied-definition heuristic for explanation scenarios. Human: clarity and source context. |
 
-"Auto" rules are code. "Human" rules are questions a reader answers on the review sheet the runner writes.
+## Completion criteria
 
-## How the eval works
+New generated steps include understandingGoal: a bounded, source-supported description of what the student should explain, connect, distinguish or apply. It is optional in the schema for older plans; for those the checker uses the central source idea and the actual tutor question. Goals are model-written criteria, not proof of semantic correctness.
 
-- `tests/evals/tutor-autonomic.json` and `tutor-conditioning.json` hold scenarios on two lessons (Hebrew): the opening question, wrong and partial answers at each rung, no attempt, "say I got it", a question outside the file, English text in a Hebrew lesson, a correct answer, moving on, and explaining.
-- `npm run eval:tutor` runs each scenario 3 times against the real model and scores the replies. Pick a lesson with `-- --dataset conditioning`, or a few scenarios with `-- --only 2,9 --runs 1`.
-- A scenario passes only when every run passes every auto rule. Any critical violation fails the whole eval. A run that ends in a provider error is incomplete and must be rerun, never scored.
-- Each run saves a result file and a review sheet under `tests/evals/results/` (ignored by Git), named with the commit of `tutor.md`.
+The checker receives the actual question and relevant history for the active step. A transition's opening question and source are assigned to the newly opened step, so they reach its checker. A short answer that demonstrates the goal passes. A recalled keyword, unrelated correct fact, incomplete relationship or literal misunderstanding does not establish mastery. No-answer/help requests, wrong answers and off-file questions keep their distinct statuses. Intermediate recall answers can be useful without completing a broader goal.
 
-## What the checks cannot judge
+## Length and audience
 
-Whether a hint is small, whether the misunderstanding was named correctly, whether praise was earned, whether an example is correct, and whether the Hebrew is natural. These stay with a reader.
+Audience ceilings remain 45 words for grades 1-6, 70 for grades 7-9, 100 for grades 10-12 and 120 for adults; unspecified audiences use 70. The general evaluator also caps ordinary replies at 80 and introductions/explanations at 120, taking the smaller limit. Prompts target considerably shorter replies. These are product defaults, not validated reading levels, and runtime text is not truncated to enforce a limit.
 
-## Known limits
+## Evaluation and limits
 
-- Answer parts are found by word stems, so a reply that states the idea in other words passes by mistake.
-- Error naming and praise use word lists in Hebrew and English.
-- Two lessons in one language. The 80/20 split, a calibrated judge model and a larger golden set are in the "four more hours" list.
+- The existing autonomic and conditioning datasets exercise statuses, explanations and attempt handling. Some names/history reflect earlier prompt versions; their answer-stem rules are regression heuristics, not a complete teaching rubric.
+- Run npm run eval:tutor for repeated scenarios and a human review sheet. Provider errors are incomplete runs. Opening definitions are expected; examples are not mandatory. Rung 1 no longer bans all hints or answer-related words.
+- Run node --env-file-if-exists=.env tests/live/review_chat.js for a focused live check based on the reported Hebrew chat: six classifier cases plus opening, partial feedback and transition. Synthetic source passages are explicitly labeled as reconstructed, not verified quotes from the original upload. Reports include prompts and are saved under ignored tests/live/results.
+- Human review remains necessary for source accuracy, quality of the understanding goal, question difficulty, natural transitions and unnecessary analogies. A two-sentence minimum or automatic PASS does not establish those qualities. The first concise-chat report passed structural checks but human review found unnecessary analogies; shared audience guidance and prompts were then corrected and the focused checks rerun.
+- Scope remains open-text chat. Four phases, answer cards, independent tests and timers are planned, not implemented by this iteration.

@@ -17,15 +17,11 @@
     {
       "title": "How does temperature affect evaporation speed?",
       "source": "warmer water evaporates faster because its particles have more energy and more can escape from the surface into the air."
-    },
-    {
-      "title": "What role does surface area play?",
-      "source": "spreading the same amount of water over a larger exposed surface makes it evaporate faster."
-    },
-    {
-      "title": "How do real-world examples illustrate these ideas?",
-      "source": "a thin wet cloth spread out in a warm room usually dries faster than an equally wet cloth folded up in a cooler room"
     }
   ],
-  "error": null
+  "error": null,
+  "introduction": {
+    "title": "Where does the water go?",
+    "overview": "Water can turn into vapor without boiling. We will explore evaporation and how temperature changes its speed."
+  }
 }

@@ -1,8 +1,9 @@
 import LessonChat from './LessonChat.jsx';
+import LessonWelcome from './LessonWelcome.jsx';
 
 // The student's side, shown to the teacher: the lesson exactly as the student sees it.
 export default function PreviewPane({ session }) {
-  const { chat, brief, plan, building, buildError, streaming, error, notice, restartPreview } = session;
+  const { chat, plan, building, buildError, streaming, error, notice, restartPreview, startLesson, publishing } = session;
   const empty = !chat && !streaming;
 
   return <div className="flex min-h-0 flex-1 flex-col bg-stone-100">
@@ -13,18 +14,17 @@ export default function PreviewPane({ session }) {
     {building && <div role="status" className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
       <span aria-hidden="true" className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-teal-700 border-t-transparent" />
       <p className="text-lg font-medium">Generating your lesson…</p>
-      <p className="text-sm text-stone-600">This can take up to a minute. The student view appears here when it is ready.</p>
+      <p className="text-sm text-stone-600">Preparing a document-wide overview and a focused lesson. Longer documents may take a little longer.</p>
     </div>}
-    {!building && empty && <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-stone-600">
-      {buildError && <p>The lesson was not built. Fix the goal on the left, then try again.</p>}
-      {!buildError && !(brief && plan) && <p>Your lesson will appear here.</p>}
-      {!buildError && brief && plan && <>
+    {!building && empty && !plan && <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-stone-600">
+      {buildError && <p>The lesson was not built. Retry from the lesson details, or start a new lesson with a different goal.</p>}
+      {!buildError && <p>Your lesson will appear here.</p>}
+    </div>}
+    {!building && empty && plan && <LessonWelcome rules={plan.rules} introduction={plan.introduction}
+      topics={plan.steps.map(step => step.title)} onBegin={startLesson} disabled={publishing}>
         {error && <p role="alert" dir="auto" className="max-w-sm rounded-xl border border-amber-300 bg-amber-50 p-3 text-stone-800">{error}</p>}
         {notice && <p role="status">{notice}</p>}
-        <p>Your lesson is built. Start it to see it the way a student does.</p>
-        <button type="button" onClick={restartPreview} className="rounded-xl bg-teal-700 px-5 py-2 font-medium text-white">Start the lesson</button>
-      </>}
-    </div>}
+    </LessonWelcome>}
     {!building && !empty && <LessonChat session={session} />}
   </div>;
 }
