@@ -53,7 +53,7 @@ export function createChatRouter({ chat, aiFor }) {
       else if (error instanceof ProviderError) send('error', { message: error.message, status: 502 });
       else if (controller.signal.aborted) return;
       else {
-        console.error('[chat] unexpected failure:', error.name);
+        console.error({ stage: 'chat', status: 500, chunk: null });
         send('error', { message: 'The tutor could not reply. Your progress is unchanged; try again.', status: 500 });
       }
     } finally {

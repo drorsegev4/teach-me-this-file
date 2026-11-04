@@ -31,12 +31,13 @@ function refusalMessage(reason, document, text) {
 }
 
 function sendFailure(res, error) {
-  if (error instanceof ChatError) return res.status(error.status).json({ error: error.message });
-  if (error instanceof PlanError) return res.status(502).json({ error: 'The lesson plan did not pass the source check. Try again.' });
-  if (error instanceof DocumentMapError) return res.status(502).json({ error: error.message });
-  if (error instanceof ProviderError) return res.status(502).json({ error: error.message });
-  console.error('[lessons] unexpected failure:', error.name, error.message);
-  return res.status(500).json({ error: 'Could not build the lesson. Try again.' });
+  const known = error instanceof ChatError || error instanceof DocumentMapError || error instanceof ProviderError;
+  const status = error instanceof ChatError ? error.status : known || error instanceof PlanError ? 502 : 500;
+  const chunk = Number.isInteger(error.chunk) ? error.chunk : null;
+  console.error({ stage: chunk === null ? 'plan' : 'map', status, chunk });
+  const message = error instanceof PlanError ? 'The lesson plan did not pass the source check. Try again.'
+    : known ? error.message : 'Could not build the lesson. Try again.';
+  return res.status(status).json({ error: message });
 }
 
 export function createLessonsRouter({ store, chat, aiFor }) {
@@ -59,6 +60,7 @@ export function createLessonsRouter({ store, chat, aiFor }) {
       document = await extractDocument(req.file);
     } catch (error) {
       // The reader writes user-facing messages for bad files (wrong type, scanned, too long).
+      console.error({ stage: 'extract', status: 400, chunk: null });
       return res.status(400).json({ error: error.message });
     }
     // Consider every readable section; internal chunks are mapped before final lesson selection.
@@ -66,7 +68,10 @@ export function createLessonsRouter({ store, chat, aiFor }) {
     try {
       prepared = prepareDocument(document, { budget: materialBudget });
     } catch (error) {
-      if (error instanceof MaterialError) return res.status(400).json({ error: error.message });
+      if (error instanceof MaterialError) {
+        console.error({ stage: 'prepare', status: 400, chunk: null });
+        return res.status(400).json({ error: error.message });
+      }
       throw error;
     }
     const { text, chunks, notice } = prepared;

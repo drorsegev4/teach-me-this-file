@@ -143,6 +143,45 @@ test('a provider failure on build is reported without leaking details', async ()
   }, ai);
 });
 
+test('malformed and oversized JSON return safe JSON errors and metadata-only logs', async () => {
+  const logs = [];
+  const original = console.error;
+  console.error = (...args) => logs.push(args);
+  try {
+    await withServer(async base => {
+      for (const [body, status, message] of [['{"secret-key":', 400, 'Invalid JSON request.'],
+        [JSON.stringify({ text: 'x'.repeat(17000) }), 413, 'Request is too large.']]) {
+        const response = await fetch(base + '/api/chat/turn', { method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-AI-Api-Key': 'secret-key' }, body });
+        assert.equal(response.status, status);
+        assert.deepEqual(await response.json(), { error: message });
+      }
+    });
+    assert.deepEqual(logs, [[{ stage: 'request', status: 400, chunk: null }], [{ stage: 'request', status: 413, chunk: null }]]);
+  } finally { console.error = original; }
+});
+
+test('build failure logs only stage, status and failed chunk, never provider text or key', async () => {
+  const logs = [];
+  const original = console.error;
+  console.error = (...args) => logs.push(args);
+  const ai = planFromText();
+  const map = ai.mapMaterial;
+  let calls = 0;
+  ai.mapMaterial = async input => {
+    if (++calls === 2) throw new Error('provider text containing secret-key');
+    return map(input);
+  };
+  try {
+    await withServer(async base => {
+      const response = await upload(base, { prompt: goodPrompt, file: await longFile(), headers: { 'X-AI-Api-Key': 'secret-key' } });
+      assert.equal(response.status, 500);
+      assert.deepEqual(await response.json(), { error: 'Could not build the lesson. Try again.' });
+    }, ai);
+    assert.deepEqual(logs, [[{ stage: 'map', status: 500, chunk: 2 }]]);
+  } finally { console.error = original; }
+});
+
 test('a refusal on a file with almost no readable text says how little was read', async () => {
   const refusal = { rules: savedPlan.rules, steps: [], error: 'The material has nothing to teach.' };
   await withServer(async base => {

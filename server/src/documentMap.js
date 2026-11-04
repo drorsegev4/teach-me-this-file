@@ -23,7 +23,10 @@ export async function mapDocument({ ai, chunks, teacherPrompt }) {
       try {
         raw = await ai.mapMaterial({ text: chunk.text, teacherPrompt, problem });
       } catch (error) {
-        if (error.name !== 'ZodError' && !(error instanceof SyntaxError)) throw error;
+        if (error.name !== 'ZodError' && !(error instanceof SyntaxError)) {
+          error.chunk = sections.length + 1;
+          throw error;
+        }
         problem = 'Return a complete JSON object matching the section-map schema.';
         continue;
       }
@@ -35,10 +38,10 @@ export async function mapDocument({ ai, chunks, teacherPrompt }) {
       }
       problem = 'Use the required map format and exact, nonempty quotes of at most 25 words copied from this section.';
     }
-    if (!mapped) throw new DocumentMapError('A document section could not be mapped reliably. Please try again.');
+    if (!mapped) throw Object.assign(new DocumentMapError('A document section could not be mapped reliably. Please try again.'), { chunk: sections.length + 1 });
     sections.push({ section: sections.length + 1, pages: chunk.pages, ...mapped });
     if (estimateTokens(JSON.stringify(sections)) > MAX_MAP_TOKENS) {
-      throw new DocumentMapError('This document contains too much material to prepare reliably in one lesson. Use a shorter file.');
+      throw Object.assign(new DocumentMapError('This document contains too much material to prepare reliably in one lesson. Use a shorter file.'), { chunk: sections.length });
     }
   }
   return { scope: 'All readable text in the uploaded document was mapped. Select a focused lesson from these topics.', sections };

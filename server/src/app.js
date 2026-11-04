@@ -59,5 +59,13 @@ export function createApp({ ai: injectedAI, devTools = Boolean(dev?.devToolsEnab
     app.use(express.static(clientDist));
     app.get('/{*splat}', (_req, res) => res.sendFile('index.html', { root: clientDist }));
   }
+  app.use((error, _req, res, _next) => {
+    const status = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599 ? error.status : 500;
+    console.error({ stage: 'request', status, chunk: null });
+    if (res.headersSent) return res.end();
+    const message = error.type === 'entity.parse.failed' ? 'Invalid JSON request.'
+      : status === 413 ? 'Request is too large.' : status < 500 ? 'Invalid request.' : 'Could not complete the request. Try again.';
+    res.status(status).json({ error: message });
+  });
   return app;
 }
