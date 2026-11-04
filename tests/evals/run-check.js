@@ -8,10 +8,10 @@ import { scoreEval } from './score.js';
 const dataset = JSON.parse(readFileSync(new URL('./check-autonomic.json', import.meta.url), 'utf8'));
 const material = readFileSync(new URL(`../../${dataset.material}`, import.meta.url), 'utf8');
 if (!material.includes(dataset.step.source)) throw new Error('The step source is not an exact quote from the material.');
-if (!process.env.GROQ_API_KEY) throw new Error('Set GROQ_API_KEY in .env. The eval calls the real model.');
+if (!process.env.GEMINI_API_KEY) throw new Error('Set GEMINI_API_KEY in .env. The eval calls the real model.');
 
 const runs = dataset.thresholds.runsPerRow;
-const ai = createAI({ apiKey: process.env.GROQ_API_KEY });
+const ai = createAI({ apiKey: process.env.GEMINI_API_KEY });
 const history = [{ role: 'tutor', text: dataset.openingQuestion }];
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

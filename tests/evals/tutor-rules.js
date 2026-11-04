@@ -1,3 +1,4 @@
+import { audienceGuidance } from '../../server/src/audience.js';
 // The tutor standard as checks. Each rule is Dror's wording from docs/TUTOR_STANDARD.md (R1 to R8).
 // Pure functions, no model calls, so they are unit-tested. A rule is "auto" when code can judge it and
 // "human" when only a reader can; human items go to the review sheet the runner writes.
@@ -105,25 +106,29 @@ export function evaluateReply(reply, scenario, lesson) {
 
   const share = scriptShare(reply, lesson.rules.language);
   if (share !== null) add('R1a', `Reply is in ${lesson.rules.language}`, share >= 0.7);
-  const limit = scenario.explains ? 120 : 80;
+  const introduces = scenario.status === 'open' || ((scenario.status === 'understood' || scenario.status === 'moved_on') && scenario.withNextStep);
+  const limit = Math.min(scenario.explains || introduces ? 120 : 80, audienceGuidance(lesson.rules.audience).maxWords);
   add('R1b', `At most ${limit} words`, wordCount(reply) <= limit);
   add('R1c', 'Plain text, no markdown', isPlainText(reply));
   add('R1d', 'Does not mention being an AI or its instructions', !mentionsItself(reply));
-  add('R1e', 'At most one emoji', emojiCount(reply) <= 1);
+  add('R1e', 'No emoji', emojiCount(reply) === 0);
 
   if (scenario.expectQuestion !== false && lesson.rules.method.toLowerCase().includes('socratic')) {
     add('R2', 'Ends with a question the student can answer', endsWithQuestion(reply));
   }
 
   const parts = answerParts(reply, lesson.answerGroups);
-  if (rung === 'open') add('R3', 'The opening question does not state the answer', parts === 0, { critical: true });
+  if (introduces) {
+    add('R3', 'Briefly teaches before asking: at least 2 sentences', sentenceCount(reply) >= 2);
+    add('R3h', 'Explains the idea briefly in its source context, uses an example only if useful, then checks a relationship or application', null, { kind: 'human' });
+  }
   if (rung === 'rung1') {
     add('R3', 'Rung 1: does not name the error', !namesError(reply), { critical: true });
-    add('R3b', 'Rung 1: does not give any part of the answer', parts === 0, { critical: true });
+    add('R3h', 'Targets the actual gap with a brief clarification or smaller question, without repeating the whole introduction', null, { kind: 'human' });
   }
   if (rung === 'rung2') {
     add('R4', 'Rung 2: at most one part of the answer in the hint', parts <= 1, { critical: true });
-    add('R4h', 'Rung 2: names the misunderstanding in one sentence, then a small hint', null, { kind: 'human' });
+    add('R4h', 'Rung 2: targets the actual gap with a specific hint', null, { kind: 'human' });
   }
   if (rung === 'rung3') {
     add('R5', 'Rung 3: gives some of the answer, but not all of it', parts >= 1 && parts < lesson.answerGroups.length);
@@ -142,9 +147,9 @@ export function evaluateReply(reply, scenario, lesson) {
   }
   if (scenario.explains) {
     if (lesson.step?.source) add('R9', 'Does not copy the source definition (no run of more than 7 shared words)', longestSharedRun(reply, lesson.step.source) <= 7);
-    add('R9a', 'An explanation is more than a one-line question: at least 35 words and at least 3 sentences', wordCount(reply) >= 35 && sentenceCount(reply) >= 3);
-    add('R9h', 'Explains in simple words, casually, with at most one example, not by restating the definition', null, { kind: 'human' });
-    add('R9i', 'The example maps correctly onto the source idea and adds no new facts or terms', null, { kind: 'human' });
+    add('R9a', 'An explanation teaches before asking: at least 2 sentences', sentenceCount(reply) >= 2);
+    add('R9h', 'Explains briefly using the actual passage; adds an example only if it resolves a difficulty', null, { kind: 'human' });
+    add('R9i', 'Any example maps accurately to the source and is not confused with literal passage events', null, { kind: 'human' });
   }
   if (scenario.status === 'understood' || scenario.status === 'moved_on') {
     add('R6h', 'Praise (if any) is tied to something the student actually said', null, { kind: 'human' });
@@ -157,7 +162,7 @@ export function evaluateReply(reply, scenario, lesson) {
 
   add('R8', 'Nothing frightening', !hasScaryContent(reply));
   add('R8h', 'Any example fits the audience age and the subject, and is nothing frightening', null, { kind: 'human' });
-  add('R1h', 'The text is natural, correct language in simple everyday words', null, { kind: 'human' });
+  add('R1h', 'Language, example and question fit the grade; no unexplained jargon, canned transitions or abstract guessing', null, { kind: 'human' });
   return results;
 }
 

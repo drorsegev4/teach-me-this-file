@@ -55,78 +55,91 @@ test('build rejects a request without a file', async () => {
 
 test('rejects a malformed API key header without echoing it', async () => {
   await withServer(async base => {
-    const response = await fetch(`${base}/api/health`, { headers: { 'X-Groq-Api-Key': 'bad key with spaces' } });
+    const response = await fetch(`${base}/api/health`, { headers: { 'X-AI-Api-Key': 'bad key with spaces' } });
     assert.equal(response.status, 400);
     const text = await response.text();
     assert.equal(text.includes('bad key'), false);
   });
 });
 
-// A model stand-in that builds a plan from the text it is given, so each part gets a plan quoted from that part.
+// A stand-in that records every mapped chunk and chooses evidence from the document end.
 function planFromText() {
-  const seen = [];
+  const mapped = [];
+  const planned = [];
   return {
-    seen,
-    async planLesson({ text }) {
-      seen.push(text);
-      const quotes = text.split('\n').filter(line => line.split(/\s+/).length >= 6).slice(0, 3);
-      return { rules: savedPlan.rules, steps: quotes.map((source, index) => ({ title: `Step ${index + 1}`, source })), error: null };
+    mapped, planned,
+    async mapMaterial({ text }) {
+      mapped.push(text);
+      const lines = text.split('\n').filter(Boolean);
+      return { heading: 'Section topic', summary: 'A section of the document.', quotes: [...new Set([lines[0], lines.at(-1)])] };
+    },
+    async planLesson(input) {
+      planned.push(input);
+      const quotes = input.documentMap ? input.documentMap.sections.flatMap(section => section.quotes) : input.text.split('\n');
+      const selected = [...new Set([quotes[0], quotes.at(-1)])];
+      return { rules: savedPlan.rules, steps: selected.map((source, index) => ({ title: 'Idea ' + index, source })), error: null,
+        introduction: { title: 'Document lesson', documentOverview: 'An overview spanning the document.', overview: 'A focused lesson.' } };
     },
   };
 }
 
 async function longFile() {
-  const filler = Array.from({ length: 3000 }, (_, i) => `Filler paragraph ${i} about something unrelated to the lesson, repeated to make the file long.`);
-  const bytes = await makeDocx(filler);
+  const filler = Array.from({ length: 220 }, (_, i) => `Filler paragraph ${i} about something unrelated to the lesson, repeated to make the file long.`);
+  const bytes = await makeDocx(['The opening topic is about learning from experience.', ...filler, 'The final topic concerns memory retrieval after a long delay.']);
   return { name: 'long.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes };
 }
 
-test('a long document is split into parts, and the first part builds a lesson with the list of parts', async () => {
+test('whole-document preparation maps the end as well as the beginning without a part selector', async () => {
   const ai = planFromText();
   await withServer(async base => {
     const response = await upload(base, { prompt: goodPrompt, file: await longFile() });
     assert.equal(response.status, 200);
     const built = await response.json();
-    assert.equal(built.steps.length, 3);
-    assert.ok(built.material.partCount > 1);
-    assert.equal(built.material.partIndex, 0);
-    assert.equal(built.material.parts.length, built.material.partCount);
-    assert.ok(built.material.estimatedTokens <= 4000);
+    assert.ok(built.steps.length >= 1 && built.steps.length <= 3);
+    assert.equal(built.material.wholeDocument, true);
+    assert.equal(Object.hasOwn(built.material, 'parts'), false);
+    assert.ok(ai.mapped.length > 1);
+    assert.match(ai.mapped.at(-1), /final topic concerns memory retrieval/);
+    assert.equal(ai.planned[0].documentMap.sections.length, ai.mapped.length);
+    assert.equal(ai.planned[0].text, undefined);
+    assert.match(built.steps.at(-1).source, /final topic concerns memory retrieval/);
+    assert.ok(built.introduction.documentOverview);
   }, ai);
 });
 
-test('choosing another part builds the lesson from that part of the file', async () => {
+test('stale part-selection requests fail explicitly rather than silently preparing a prefix', async () => {
+  await withServer(async base => {
+    for (const part of [1, 999, 'abc']) {
+      const response = await upload(base, { prompt: goodPrompt, file: await sampleFile(), part });
+      assert.equal(response.status, 400);
+      assert.match((await response.json()).error, /Section selection is no longer needed/);
+    }
+  });
+});
+
+test('a failed late mapping call prevents publication of a partial lesson', async () => {
   const ai = planFromText();
+  const originalMap = ai.mapMaterial;
+  let calls = 0;
+  ai.mapMaterial = async input => { if (++calls === 2) throw new ProviderError('Gemini is temporarily unavailable.'); return originalMap(input); };
   await withServer(async base => {
-    const file = await longFile();
-    const first = await (await upload(base, { prompt: goodPrompt, file })).json();
-    const second = await (await upload(base, { prompt: goodPrompt, file, part: 1 })).json();
-    assert.equal(second.material.partIndex, 1);
-    assert.equal(second.material.partCount, first.material.partCount);
-    assert.notEqual(ai.seen[0], ai.seen[1]);
-    assert.ok(!ai.seen[1].includes(ai.seen[0].split('\n')[0]));
-    assert.notEqual(second.steps[0].source, first.steps[0].source);
+    const response = await upload(base, { prompt: goodPrompt, file: await longFile() });
+    assert.equal(response.status, 502);
+    assert.equal(ai.planned.length, 0);
+    const published = await fetch(base + '/api/lessons/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(published.status, 409);
   }, ai);
-});
-
-test('a part that does not exist is refused with how many parts there are', async () => {
-  await withServer(async base => {
-    const response = await upload(base, { prompt: goodPrompt, file: await longFile(), part: 999 });
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /This file has \d+ parts\. Choose one of them\./);
-    assert.equal((await upload(base, { prompt: goodPrompt, file: await longFile(), part: 'abc' })).status, 400);
-  }, planFromText());
 });
 
 const docxType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const sampleFile = async () => ({ name: 'lesson.docx', type: docxType, bytes: await makeDocx(sampleText.split(/\n+/).filter(Boolean)) });
 
 test('a provider failure on build is reported without leaking details', async () => {
-  const ai = { planLesson: async () => { throw new ProviderError('Groq request failed (401).'); } };
+  const ai = { planLesson: async () => { throw new ProviderError('Gemini request failed (401).'); } };
   await withServer(async base => {
     const response = await upload(base, { prompt: goodPrompt, file: await sampleFile() });
     assert.equal(response.status, 502);
-    assert.deepEqual(await response.json(), { error: 'Groq request failed (401).' });
+    assert.deepEqual(await response.json(), { error: 'Gemini request failed (401).' });
   }, ai);
 });
 

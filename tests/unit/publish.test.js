@@ -21,8 +21,8 @@ function service(delayMs = 0) {
   return { ai, chat: createChatService({ ai, store }) };
 }
 
-async function withServer(run, { delayMs = 0 } = {}) {
-  const server = createApp({ ai: createMockAI(plan, { delayMs }) }).listen(0, '127.0.0.1');
+async function withServer(run, { delayMs = 0, responsePlan = plan } = {}) {
+  const server = createApp({ ai: createMockAI(responsePlan, { delayMs }) }).listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   const call = (path, { session, body } = {}) => fetch(`${base}${path}`, {
@@ -68,7 +68,7 @@ test('a reply running in one session does not block another', async () => {
 });
 
 test('publish needs a draft, returns the same link twice, and keeps the plan as published', async () => {
-  const ai = createMockAI([plan, { ...plan, steps: plan.steps.slice(0, 3) }]);
+  const ai = createMockAI([plan, { ...plan, steps: plan.steps.slice(0, 2) }]);
   const store = createPlanStore({ ai });
   assert.equal(await store.publish({ key: 'nobody' }), null);
   await store.build({ key: 'teacher', text: sampleText, teacherPrompt: 'Teach this to 7th graders' });
@@ -119,7 +119,7 @@ test('publish over HTTP: 409 without a draft, then a link a student can open and
     assert.equal(other.completedStepIds.length, 0);
     const mine = await (await call('/api/chat', { session: studentA })).json();
     assert.equal(mine.completedStepIds.length, 1);
-    assert.equal((await call('/api/chat', { session: teacher })).status, 404);
+    assert.equal((await call('/api/chat', { session: teacher })).status, 204);
   });
 });
 
@@ -135,7 +135,7 @@ test('an unknown or malformed lesson link is refused', async () => {
 test('an invalid session id is refused and a missing one uses the shared session', async () => {
   await withServer(async call => {
     assert.equal((await call('/api/chat', { session: 'short' })).status, 400);
-    assert.equal((await call('/api/chat')).status, 404);
+    assert.equal((await call('/api/chat')).status, 204);
   });
 });
 
@@ -144,4 +144,25 @@ test('starting without a built lesson is refused instead of teaching a sample le
   await assert.rejects(chat.turn({ type: 'start' }), error => error.status === 409 && /Build a lesson first/.test(error.message));
   const store = createPlanStore({ ai: createMockAI(plan) });
   assert.equal(store.getDraft('nobody'), null);
+});
+
+
+test('published welcome exposes the prepared overview and topics without starting chat or leaking sources', async () => {
+  const introduction = { title: 'Where water goes', documentOverview: 'The document connects water changes to their surrounding conditions.', overview: 'Water can change from liquid into vapor. We will explore what changes how quickly this happens.' };
+  const responsePlan = { ...plan, introduction };
+  await withServer(async (call, base) => {
+    await buildDraft(base, teacher);
+    const { id } = await (await call('/api/lessons/publish', { session: teacher, body: {} })).json();
+    const info = await (await call('/api/lessons/' + id)).json();
+    assert.deepEqual(info.introduction, introduction);
+    assert.deepEqual(info.topics, plan.steps.map(step => step.title));
+    assert.equal(info.stepCount, plan.steps.length);
+    assert.equal(Object.hasOwn(info, 'steps'), false);
+    assert.equal(JSON.stringify(info).includes(plan.steps[0].source), false);
+    assert.equal((await call('/api/chat', { session: studentA })).status, 204);
+    const started = await turn(call, studentA, { type: 'start', lessonId: id });
+    assert.equal(started.currentStepId, 'step-1');
+    assert.deepEqual(started.completedStepIds, []);
+    assert.equal(started.messages.length, 1);
+  }, { responsePlan });
 });

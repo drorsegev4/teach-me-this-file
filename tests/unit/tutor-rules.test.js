@@ -33,18 +33,19 @@ test('praise and error naming are found in either language', () => {
   assert.equal(namesError('בוא ננסה בצורה אחרת'), false);
 });
 
-test('rung 1 fails when the reply names the error or gives away any part of the answer', () => {
+test('first clarification can explain a gap without being scored as answer leakage', () => {
+  const localLesson = { rules: { language: 'English', audience: '7th grade', method: 'Socratic' }, answerGroups: [['vapor']] };
   const scenario = { status: 'keep_going', attempt: 1, rung: 'rung1' };
-  assert.deepEqual(failed(evaluateReply('בוא ננסה שוב: מה אתה מרגיש בגוף כשאתה רץ מהר?', scenario, lesson)), []);
-  assert.deepEqual(failed(evaluateReply('זה לא נכון. מה קורה לקצב הלב ולהזעה כשרצים?', scenario, lesson)), ['R3', 'R3b']);
-  assert.deepEqual(failed(evaluateReply('חשוב על רגע שבו הופתעת. איך הגוף שלך מגיב?', scenario, lesson)), []);
-  assert.ok(failed(evaluateReply('חשוב על רגע שבו הופתעת. מה קורה לקצב הלב שלך?', scenario, lesson)).includes('R3b'));
+  const results = evaluateReply('Water becomes vapor rather than disappearing. Where does the water go?', scenario, localLesson);
+  assert.deepEqual(failed(results), []);
+  assert.ok(results.some(rule => rule.id === 'R3h' && rule.kind === 'human'));
+  assert.ok(failed(evaluateReply('Wrong, water becomes vapor. Where does it go?', scenario, localLesson)).includes('R3'));
 });
 
 test('opening praise after a wrong answer fails, but is allowed after a correct one', () => {
   const wrong = { status: 'keep_going', attempt: 1, rung: 'rung1' };
   assert.ok(failed(evaluateReply('כל הכבוד על הניסיון! מה אתה מרגיש כשאתה רץ?', wrong, lesson)).includes('R6'));
-  const right = { status: 'understood', attempt: 0, withNextStep: true };
+  const right = { status: 'understood', attempt: 0, withNextStep: false };
   assert.deepEqual(failed(evaluateReply('כל הכבוד, זיהית את התגובות. ומה קורה כשהגוף נרגע?', right, lesson)), []);
 });
 
@@ -71,7 +72,7 @@ test('forbidden terms and requested confirmations are caught', () => {
 test('a reply in the wrong language, too long, or in markdown fails the basics', () => {
   const scenario = { status: 'open', attempt: 0, rung: 'open' };
   assert.ok(failed(evaluateReply('How does the body react to running fast?', scenario, lesson)).includes('R1a'));
-  assert.ok(failed(evaluateReply(`${'מילה '.repeat(90)}?`, scenario, lesson)).includes('R1b'));
+  assert.ok(failed(evaluateReply(`${'מילה '.repeat(130)}?`, scenario, lesson)).includes('R1b'));
   assert.ok(failed(evaluateReply('**שאלה:** מה קורה?', scenario, lesson)).includes('R1c'));
 });
 
@@ -114,4 +115,23 @@ test('an explanation needs real length and more than one sentence', async () => 
   assert.deepEqual(failed(evaluateReply(explained, scenario, lessonWithStep)), []);
   const copied = 'לומדים לקשר בין שני גירויים באופן שיעזור לנו לנבא התרחשות של אירוע בעתיד, לדוגמה כשהכול ברור לגמרי ונהיה פשוט להבין את כל הרעיון יחד איתי עכשיו. מה אתה חושב על זה?';
   assert.ok(failed(evaluateReply(copied, scenario, lessonWithStep)).includes('R9'));
+});
+
+
+test('new steps teach before asking, including transitions and Socratic lessons', () => {
+  const english = { rules: { language: 'English', method: 'Socratic' }, answerGroups: [['vapor']] };
+  const teaching = 'Evaporation means liquid water becomes vapor at its surface. For example, water at the surface of an open dish becomes vapor in the air. This change is evaporation. Where does the change happen?';
+  for (const scenario of [{ status: 'open', rung: 'open' }, { status: 'understood', withNextStep: true }, { status: 'moved_on', withNextStep: true }]) {
+    assert.deepEqual(failed(evaluateReply(teaching, scenario, english)), []);
+    assert.ok(failed(evaluateReply('What do you think evaporation means?', scenario, english)).includes('R3'));
+    assert.ok(evaluateReply(teaching, scenario, english).some(rule => rule.id === 'R3h' && rule.kind === 'human'));
+  }
+});
+
+
+test('a concise two-sentence opening needs no analogy or padding', () => {
+  const localLesson = { rules: { language: 'English', audience: '7th grade', method: 'Socratic' }, answerGroups: [] };
+  const scenario = { status: 'open', explains: true };
+  const reply = 'The promise of returning gives hope during exile. How could that promise comfort someone far from their country?';
+  assert.deepEqual(failed(evaluateReply(reply, scenario, localLesson)), []);
 });

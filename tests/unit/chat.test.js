@@ -229,3 +229,26 @@ test('stopping a reply over HTTP aborts it and leaves the lesson state unchanged
     server.close();
   }
 });
+
+
+test('the checker receives the transition question and goal for the new step', async () => {
+  const steps = [
+    { title: 'First', source: 'First source', understandingGoal: 'Explain the first idea.' },
+    { title: 'Second', source: 'Second source', understandingGoal: 'Connect the second idea.' },
+  ];
+  const checked = [];
+  const ai = {
+    classify: async input => { checked.push(input); return { status: checked.length === 1 ? 'understood' : 'keep_going' }; },
+    replyStream: async ({ status }) => status === 'understood' ? 'Here is the second idea. How are its parts connected?' : 'Here is the first idea. Why does it happen?',
+  };
+  const chat = createChatService({ ai, store: { getDraft: async () => ({ rules: plan.rules, steps }) } });
+  await chat.turn({ type: 'start' });
+  const advanced = await chat.turn({ type: 'message', text: 'First explanation' });
+  assert.equal(advanced.messages.at(-1).stepId, 'step-2');
+  assert.equal(advanced.messages.at(-1).quote, steps[1].source);
+  const state = await chat.turn({ type: 'message', text: 'Second explanation' });
+  assert.equal(checked[1].step.understandingGoal, steps[1].understandingGoal);
+  assert.match(checked[1].history[0].text, /How are its parts connected/);
+  assert.equal(checked[1].history.some(message => message.text === 'First explanation'), false);
+  assert.equal(state.currentStepId, 'step-2');
+});

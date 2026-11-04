@@ -3,7 +3,7 @@ const network = 'Cannot reach the server. Check that it is running, then try aga
 // The reviewer's key goes in a header on each AI call. The server uses it for that call only.
 // The session id picks which lesson state on the server a request belongs to.
 function headers({ apiKey, sessionId }) {
-  return { ...(apiKey ? { 'X-Groq-Api-Key': apiKey } : {}), ...(sessionId ? { 'X-Session-Id': sessionId } : {}) };
+  return { ...(apiKey ? { 'X-AI-Api-Key': apiKey } : {}), ...(sessionId ? { 'X-Session-Id': sessionId } : {}) };
 }
 
 async function getJson(path, options, failure) {
@@ -18,12 +18,11 @@ async function getJson(path, options, failure) {
   return data;
 }
 
-// Uploads one PDF or DOCX with the teacher's prompt, and which part of a long file to use. Resolves with the checked plan.
-export function buildLesson({ file, prompt, part = 0, apiKey, sessionId }) {
+// Uploads a PDF or DOCX and teacher goal. The server selects a lesson using all readable text.
+export function buildLesson({ file, prompt, apiKey, sessionId }) {
   const form = new FormData();
   form.append('file', file);
   form.append('prompt', prompt);
-  form.append('part', String(part));
   return getJson('/api/lessons/build', { method: 'POST', headers: headers({ apiKey, sessionId }), body: form }, 'Could not build the lesson. Try again.');
 }
 
@@ -37,7 +36,7 @@ export function getLesson(id) {
   return getJson(`/api/lessons/${encodeURIComponent(id)}`, undefined, 'This lesson link is not available. Ask your teacher for a new link.');
 }
 
-// Whether the host has its own Groq key, so a student does not need to paste one.
+// Whether the host has its own Gemini key, so a student does not need to paste one.
 export async function getHostKey() {
   try {
     return Boolean((await (await fetch('/api/health')).json()).hostKey);
@@ -53,7 +52,7 @@ export async function getChat(sessionId) {
   } catch {
     throw new Error(network);
   }
-  if (response.status === 404) return null;
+  if (response.status === 204) return null;
   if (!response.ok) throw new Error('Could not load the lesson. Try again.');
   return response.json();
 }

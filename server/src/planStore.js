@@ -6,15 +6,16 @@ const MAX_DRAFTS = 200;
 const MAX_PUBLISHED = 100;
 
 // Each session has its own draft plan; a draft is shared by that session's requests until a new one is built.
-// Concurrent requests await the same promise, so a double click makes one model call.
+// Draft lookup and publication await the complete preparation promise, including document mapping.
 // Publishing copies the draft plan under a link id, so later rebuilds do not change what students see.
 export function createPlanStore({ ai: defaultAI } = {}) {
   const drafts = new Map();
   const published = new Map();
 
-  function generate(key, model, { text, teacherPrompt }) {
-    const attempt = generateLessonPlan({ ai: model, text, teacherPrompt })
-      .then(plan => (plan.error ? { error: plan.error } : { rules: plan.rules, steps: plan.steps }));
+  function generate(key, model, { text, chunks, teacherPrompt }) {
+    const attempt = generateLessonPlan({ ai: model, text, chunks, teacherPrompt })
+      .then(plan => (plan.error ? { error: plan.error } : { rules: plan.rules, steps: plan.steps,
+        ...(plan.introduction ? { introduction: plan.introduction } : {}) }));
     const entry = { attempt, publishedId: null };
     remember(drafts, key, entry, MAX_DRAFTS);
     // Failed or refused plans are not kept, so the next request tries again.
@@ -28,8 +29,8 @@ export function createPlanStore({ ai: defaultAI } = {}) {
     getDraft(key = DEFAULT_KEY) {
       return drafts.get(key)?.attempt ?? null;
     },
-    build({ key = DEFAULT_KEY, ai = defaultAI, text, teacherPrompt }) {
-      return generate(key, ai, { text, teacherPrompt });
+    build({ key = DEFAULT_KEY, ai = defaultAI, text, chunks, teacherPrompt }) {
+      return generate(key, ai, { text, chunks, teacherPrompt });
     },
     // Returns the link id for the session's current draft, or null when there is no usable draft.
     async publish({ key = DEFAULT_KEY } = {}) {

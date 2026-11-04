@@ -5,18 +5,17 @@ import { ChatError } from './chatService.js';
 import { ProviderError } from './ai.js';
 import { extractDocument, MAX_FILE_BYTES } from './documents.js';
 import { PlanError } from './lessonPlan.js';
-import { DEFAULT_TOKEN_BUDGET, PartError, prepareMaterial } from './material.js';
+import { DEFAULT_TOKEN_BUDGET, MaterialError, prepareDocument } from './material.js';
+import { DocumentMapError } from './documentMap.js';
 import { sessionKey } from './session.js';
 
-// The first goal is limited to 500 characters in the UI; follow-up changes are appended, so the server allows more.
+// The setup UI limits goals to 500 characters; retain the 1500-character API allowance for tools and existing clients.
 export const MAX_PROMPT_CHARS = 1500;
-// Token budget for the material of one build. The default fits the free Groq key (about 8,000 tokens per minute).
+// Token budget for the material of one build. Kept conservative across provider quotas.
 const materialBudget = Number(process.env.MATERIAL_TOKEN_BUDGET) || DEFAULT_TOKEN_BUDGET;
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 4 } });
 const buildPrompt = z.string().trim().min(1).max(MAX_PROMPT_CHARS);
-// Which part of a long file to build the lesson from; the first when the field is missing.
-const buildPart = z.coerce.number().int().min(0).max(999).default(0);
 
 const THIN_TEXT_WORDS = 150;
 
@@ -34,6 +33,7 @@ function refusalMessage(reason, document, text) {
 function sendFailure(res, error) {
   if (error instanceof ChatError) return res.status(error.status).json({ error: error.message });
   if (error instanceof PlanError) return res.status(502).json({ error: 'The lesson plan did not pass the source check. Try again.' });
+  if (error instanceof DocumentMapError) return res.status(502).json({ error: error.message });
   if (error instanceof ProviderError) return res.status(502).json({ error: error.message });
   console.error('[lessons] unexpected failure:', error.name, error.message);
   return res.status(500).json({ error: 'Could not build the lesson. Try again.' });
@@ -50,8 +50,10 @@ export function createLessonsRouter({ store, chat, aiFor }) {
   }), async (req, res) => {
     const prompt = buildPrompt.safeParse(req.body?.prompt);
     if (!prompt.success) return res.status(400).json({ error: `Write a lesson goal of up to ${MAX_PROMPT_CHARS} characters.` });
-    const part = buildPart.safeParse(req.body?.part);
-    if (!part.success) return res.status(400).json({ error: 'Choose a valid part of the file.' });
+    // Old clients must not silently build a partial lesson using a stale part control.
+    if (req.body?.part !== undefined && String(req.body.part) !== '0') {
+      return res.status(400).json({ error: 'Section selection is no longer needed. Refresh the app and rebuild to use the whole document.' });
+    }
     let document;
     try {
       document = await extractDocument(req.file);
@@ -59,18 +61,18 @@ export function createLessonsRouter({ store, chat, aiFor }) {
       // The reader writes user-facing messages for bad files (wrong type, scanned, too long).
       return res.status(400).json({ error: error.message });
     }
-    // A long file is split into parts that each fit one request; the lesson is built from the chosen part.
+    // Consider every readable section; internal chunks are mapped before final lesson selection.
     let prepared;
     try {
-      prepared = prepareMaterial(document, { budget: materialBudget, part: part.data });
+      prepared = prepareDocument(document, { budget: materialBudget });
     } catch (error) {
-      if (error instanceof PartError) return res.status(400).json({ error: error.message });
+      if (error instanceof MaterialError) return res.status(400).json({ error: error.message });
       throw error;
     }
-    const { text, notice } = prepared;
+    const { text, chunks, notice } = prepared;
     try {
       chat.reset(sessionKey(req));
-      const plan = await store.build({ key: sessionKey(req), ai: aiFor(req), text, teacherPrompt: prompt.data });
+      const plan = await store.build({ key: sessionKey(req), ai: aiFor(req), text, chunks, teacherPrompt: prompt.data });
       if (plan.error) return res.status(422).json({ error: refusalMessage(plan.error, document, text) });
       res.json({ ...plan, fileName: document.name, warnings: document.warnings, material: notice });
     } catch (error) {
@@ -89,11 +91,12 @@ export function createLessonsRouter({ store, chat, aiFor }) {
     }
   });
 
-  // What a student sees before starting: the lesson rules and how many steps, never the goal, file or sources.
+  // Public welcome content: lesson overview and topic titles, never internal goals or source quotes.
   router.get('/:id', (req, res) => {
     const plan = store.getPublished(req.params.id);
     if (!plan) return res.status(404).json({ error: 'This lesson link is not available. Ask your teacher for a new link.' });
-    res.json({ id: req.params.id, rules: plan.rules, stepCount: plan.steps.length });
+    res.json({ id: req.params.id, rules: plan.rules, stepCount: plan.steps.length,
+      topics: plan.steps.map(step => step.title), introduction: plan.introduction ?? null });
   });
   return router;
 }

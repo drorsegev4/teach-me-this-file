@@ -56,12 +56,13 @@ test('rejects two steps that use the same quote', () => {
   assert.throws(() => checkLessonPlan(duplicate, document), /same source/);
 });
 
-test('rejects fewer than three or more than seven steps', () => {
-  const short = { ...validPlan, steps: validPlan.steps.slice(0, 2) };
-  assert.throws(() => checkLessonPlan(short, document), /at least 3 steps/);
-  const step = validPlan.steps[0];
-  const long = { ...validPlan, steps: Array.from({ length: 8 }, () => step) };
-  assert.throws(() => checkLessonPlan(long, document));
+test('accepts one to three steps and rejects empty or oversized lessons', () => {
+  for (const count of [1, 2, 3]) {
+    assert.equal(checkLessonPlan({ ...validPlan, steps: validPlan.steps.slice(0, count) }, document).steps.length, count);
+  }
+  assert.throws(() => checkLessonPlan({ ...validPlan, steps: [] }, document), /at least 1 steps/);
+  const tooMany = { ...validPlan, steps: [...validPlan.steps, { title: 'Extra', source: 'Extra' }] };
+  assert.throws(() => checkLessonPlan(tooMany, document));
 });
 
 test('rejects a source longer than 25 words', () => {
@@ -114,4 +115,26 @@ test('gives up after two failed attempts and keeps both outputs', async () => {
     assert.equal(error.attempts.length, 2);
     return true;
   });
+});
+
+
+test('preserves a bounded understanding goal and accepts older plans without one', () => {
+  const withGoal = structuredClone(validPlan);
+  withGoal.steps[0].understandingGoal = 'Explain why liquid water can leave a surface without disappearing.';
+  assert.equal(checkLessonPlan(withGoal, document).steps[0].understandingGoal, withGoal.steps[0].understandingGoal);
+  assert.equal(checkLessonPlan(validPlan, document).steps[0].understandingGoal, undefined);
+  for (const goal of ['', ' ', 'x'.repeat(301)]) {
+    withGoal.steps[0].understandingGoal = goal;
+    assert.throws(() => checkLessonPlan(withGoal, document));
+  }
+});
+
+
+test('retains a bounded introduction while older plans need none', () => {
+  const raw = { ...validPlan, introduction: { title: 'Evaporation', overview: 'Water changes into vapor. We will explore what affects the change.' } };
+  assert.deepEqual(checkLessonPlan(raw, document).introduction, raw.introduction);
+  assert.equal(checkLessonPlan(validPlan, document).introduction, undefined);
+  for (const introduction of [{ title: '', overview: 'Text' }, { title: 'Title', overview: 'x'.repeat(601) }]) {
+    assert.throws(() => checkLessonPlan({ ...raw, introduction }, document));
+  }
 });
