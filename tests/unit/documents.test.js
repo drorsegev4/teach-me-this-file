@@ -14,6 +14,8 @@ test('reads text from a DOCX', async () => {
 test('reads text from a PDF in a worker without crashing', async () => {
   const result = await extractDocument({ originalname: 'sample.pdf', buffer: fixture('sample.pdf') });
   assert.match(text(result), /Evaporation is the change of liquid water/);
+  assert.equal(result.readAll, true);
+  assert.equal(result.pagesRead, result.totalPages);
 });
 
 test('refuses a file that is not a PDF or DOCX', async () => {

@@ -128,9 +128,9 @@ function packChunks(units, budget) {
 const MAX_DOCUMENT_TOKENS = 64000;
 const MAX_MAPPING_CHUNKS = 16;
 
-export function prepareDocument({ segments, totalPages = null, readAll = true, warnings = [] }, { budget = DEFAULT_TOKEN_BUDGET } = {}) {
+export function prepareDocument({ segments, totalPages = null, readAll = true, pagesRead, warnings = [] }, { budget = DEFAULT_TOKEN_BUDGET } = {}) {
   if (!Number.isFinite(budget) || budget < 100) throw new MaterialError('The material request budget is invalid.');
-  if (!readAll) throw new MaterialError('This file could not be read in full within the processing limit. Use a shorter text-based file.');
+  if (!readAll) throw new MaterialError(`This file is longer than the limit (read ${pagesRead} ${pagesRead === 1 ? 'page' : 'pages'}). Upload the chapter or section you want to teach.`);
   const { units, removedRepeats } = readUnits(segments, budget);
   const text = units.map(unit => unit.text).join('\n');
   if (estimateTokens(text) > MAX_DOCUMENT_TOKENS) throw new MaterialError('This document contains too much text to prepare in one lesson. Use a shorter file.');

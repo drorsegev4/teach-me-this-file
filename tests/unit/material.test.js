@@ -59,7 +59,11 @@ test('word-only text is not dropped, and Word chunks have no invented pages', ()
 });
 
 test('incomplete extraction is refused rather than passed off as a whole document', () => {
-  assert.throws(() => prepareDocument({ segments: [seg(1, 'Only the beginning.')], readAll: false }), error => error instanceof MaterialError && /could not be read in full/.test(error.message));
+  for (const pagesRead of [1, 61]) {
+    assert.throws(() => prepareDocument({ segments: [seg(1, 'Only the beginning.')], readAll: false, pagesRead }),
+      error => error instanceof MaterialError && error.message ===
+        `This file is longer than the limit (read ${pagesRead} ${pagesRead === 1 ? 'page' : 'pages'}). Upload the chapter or section you want to teach.`);
+  }
 });
 
 test('processing bounds fail clearly instead of truncating the document', () => {

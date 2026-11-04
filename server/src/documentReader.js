@@ -51,7 +51,7 @@ export async function readDocument({ extension, buffer }) {
       segments.push({ id: `s${segments.length + 1}`, page: part.page, text: part.text.slice(offset, offset + 2000) });
     }
   }
-  return { segments, warnings, totalPages, readAll };
+  return { segments, warnings, totalPages, readAll, pagesRead: extension === 'pdf' ? parts.length : null };
 }
 
 // The file arrives on stdin and the JSON result leaves on stdout. Plain pipes, not IPC: with
