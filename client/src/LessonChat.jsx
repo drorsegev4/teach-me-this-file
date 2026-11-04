@@ -1,4 +1,5 @@
 import { languageDirection } from './direction.js';
+import SourceQuote from './SourceQuote.jsx';
 
 // The student's side of the lesson: progress, the conversation, and the answer box.
 // Layout uses logical classes (ms-, rounded-es-, rounded-ee-) so it mirrors when the lesson is right-to-left.
@@ -37,6 +38,8 @@ export default function LessonChat({ session }) {
       <button className="mt-2 underline disabled:opacity-50" disabled={streaming} onClick={() => setError('')}>Dismiss</button>
     </div>}
     {notice && <p role="status" className="mb-4 text-sm text-stone-600">{notice}</p>}
+
+    {currentStep?.source && <SourceQuote key={currentStep.id} source={currentStep.source} />}
 
     {(chat || streaming) && <section aria-label="Conversation" className="flex-1 space-y-3" role="log" aria-live="polite">
       {chat?.messages.map(message => message.role === 'student'

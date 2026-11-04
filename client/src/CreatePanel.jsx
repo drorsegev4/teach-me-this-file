@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import KeySettings from './KeySettings.jsx';
+import SourceQuote from './SourceQuote.jsx';
 
 export default function CreatePanel({ session, onOpenStudent }) {
   const { chat, brief, plan, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, newLesson, published, publishing, publishError, publish } = session;
@@ -59,10 +60,7 @@ export default function CreatePanel({ session, onOpenStudent }) {
                   <span dir="auto">{step.title}</span>
                   <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">{status}</span>
                 </p>
-                <details className="mt-1 text-xs text-stone-600">
-                  <summary className="cursor-pointer py-2">Source from the file</summary>
-                  <blockquote dir="auto" className="mt-1 rounded-lg bg-stone-50 p-3 leading-5">“{step.source}”</blockquote>
-                </details>
+                <SourceQuote source={step.source} />
               </div>
             </li>;
           })}
