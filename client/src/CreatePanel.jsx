@@ -1,21 +1,8 @@
 import { useState } from 'react';
-import { fullGoal, MAX_TOTAL_PROMPT } from './goalRules.js';
 import KeySettings from './KeySettings.jsx';
 
-// Tells the teacher which part of the file the lesson was built from.
-function materialNotes(material) {
-  const notes = [];
-  if (material.partCount > 1) notes.push(`This file is long, so it is split into ${material.partCount} parts. This lesson uses part ${material.partIndex + 1}. Choose another part below to build a lesson from it.`);
-  if (material.moreUnread) notes.push('This file is very long. Only its first parts could be read.');
-  if (material.removedRepeats > 0) notes.push(`Skipped ${material.removedRepeats} repeated paragraph${material.removedRepeats === 1 ? '' : 's'}.`);
-  return notes;
-}
-
-const pagesText = pages => (pages ? `pages ${pages.from}${pages.to === pages.from ? '' : `–${pages.to}`}` : '');
-
 export default function CreatePanel({ session, onOpenStudent }) {
-  const { chat, brief, plan, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, choosePart, requestChange, newLesson, published, publishing, publishError, publish } = session;
-  const [draft, setDraft] = useState('');
+  const { chat, brief, plan, building, buildError, streaming, fileName, material, apiKey, setApiKey, build, newLesson, published, publishing, publishError, publish } = session;
   const [copied, setCopied] = useState(false);
   const link = published ? `${window.location.origin}/l/${published.id}` : '';
 
@@ -28,18 +15,7 @@ export default function CreatePanel({ session, onOpenStudent }) {
   }
 
   const steps = chat?.steps ?? plan?.steps ?? [];
-  const busy = building || streaming;
-  const text = draft.trim();
-  const tooLong = Boolean(brief) && text && fullGoal({ ...brief, changes: [...brief.changes, text] }).length > MAX_TOTAL_PROMPT;
-  const canSend = Boolean(brief) && !busy && Boolean(text) && !tooLong;
-
-  function send(event) {
-    event.preventDefault();
-    if (!canSend) return;
-    requestChange(text);
-    setDraft('');
-  }
-
+  const busy = building || streaming || publishing;
   return <div className="flex min-h-0 flex-1 flex-col">
     <header className="flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-widest text-teal-700">Create lesson</p>
@@ -94,54 +70,32 @@ export default function CreatePanel({ session, onOpenStudent }) {
       </>}
     </section>
 
-    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" role="log" aria-label="Your requests">
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" role="log" aria-label="Lesson details">
       {brief
         ? <>
           <div className="rounded-2xl bg-stone-200/70 px-4 py-3 text-sm leading-6">
             <p dir="auto">{brief.prompt}</p>
             <p dir="auto" className="mt-2 truncate text-xs text-stone-600">File: <span className="font-medium">{brief.file.name}</span></p>
           </div>
-          {brief.changes.map((change, index) => <p key={index} dir="auto" className="rounded-2xl bg-stone-200/70 px-4 py-3 text-sm leading-6">{change}</p>)}
         </>
         : <p className="text-sm text-stone-600">This lesson was built before you reloaded the page. Start a new lesson to change it.</p>}
-      {!building && material?.partCount > 1 && <div role="group" aria-label="Parts of this file" className="rounded-xl border border-stone-200 bg-white p-3">
-        <p className="text-xs font-medium text-stone-700">Parts of this file</p>
-        <div className="mt-2 flex flex-col gap-1">
-          {material.parts.map(part => <button key={part.index} type="button" disabled={busy || part.index === material.partIndex} onClick={() => choosePart(part.index)}
-            aria-current={part.index === material.partIndex ? 'true' : undefined}
-            className={`rounded-lg border px-3 py-2.5 text-start text-xs ${part.index === material.partIndex ? 'border-teal-600 bg-teal-50 text-teal-900' : 'border-stone-200 bg-white text-stone-700 hover:border-teal-500'} disabled:opacity-100`}>
-            <span className="font-medium">Part {part.index + 1}</span>{pagesText(part.pages) && <span> · {pagesText(part.pages)}</span>}
-            <span dir="auto" className="block truncate text-stone-600">{part.label}</span>
-          </button>)}
-        </div>
-      </div>}
-      {!building && material && materialNotes(material).map(note => <p key={note} role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm">{note}</p>)}
+      {!building && material?.wholeDocument && <p className="text-xs text-stone-500">The lesson was selected from the whole readable document.</p>}
+      {!building && material?.warnings?.filter(warning => warning.startsWith('No readable text')).map(warning =>
+        <p key={warning} role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">{warning}</p>)}
+      {!building && material && (material.removedRepeats > 0 || material.warnings?.length > 0) && <details className="rounded-xl border border-stone-200 bg-white p-3 text-xs text-stone-600">
+        <summary className="cursor-pointer">File details</summary>
+        {material.removedRepeats > 0 && <p className="mt-2">Removed {material.removedRepeats} repeated paragraphs.</p>}
+        {material.warnings?.map(warning => <p key={warning} className="mt-2">{warning}</p>)}
+      </details>}
       {building && <p role="status" className="text-sm text-stone-600">Working on it…</p>}
       {buildError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
         <p>{buildError}</p>
         <button className="mt-2 underline disabled:opacity-50" disabled={busy} onClick={() => build(brief)}>Try again</button>
       </div>}
-      {!building && !buildError && steps.length > 0 && <p className="text-sm text-stone-600">Your lesson is ready: {steps.length} steps. Try it in the student preview, or ask for a change below.</p>}
+      {!building && !buildError && steps.length > 0 && <p className="text-sm text-stone-600">Review the plan, begin the lesson, or publish it for students.</p>}
       <KeySettings apiKey={apiKey} onKeyChange={setApiKey} disabled={busy} open={Boolean(buildError)}
         onApply={buildError && brief ? () => build(brief) : undefined} applyLabel="Use this key and try again" />
     </div>
 
-    <form onSubmit={send} className="border-t border-stone-200 bg-[#faf9f6] p-3">
-      <label htmlFor="change" className="sr-only">Ask for a change to the lesson</label>
-      <div className="rounded-2xl border border-stone-300 bg-white p-2 focus-within:border-teal-600">
-        <textarea id="change" dir="auto" value={draft} rows={2} disabled={!brief || busy}
-          onChange={event => setDraft(event.target.value)}
-          onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) send(event); }}
-          placeholder={brief ? 'Ask for changes, e.g. make it shorter or add a step about…' : 'Start a new lesson to ask for changes'}
-          className="block w-full resize-none bg-transparent px-2 py-1 text-sm outline-none disabled:opacity-60" />
-        <div className="flex items-center justify-between gap-2 px-1">
-          <p className="text-xs text-red-600" role="status">{tooLong && 'Too long. Shorten this change.'}</p>
-          <button type="submit" disabled={!canSend} aria-label="Send change" title="Send change"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-700 text-white disabled:bg-stone-300">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-          </button>
-        </div>
-      </div>
-    </form>
   </div>;
 }
