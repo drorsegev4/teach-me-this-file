@@ -33,7 +33,7 @@ export function publishLesson({ sessionId }) {
 
 // What a student sees before starting a published lesson: its rules and step count.
 export function getLesson(id) {
-  return getJson(`/api/lessons/${encodeURIComponent(id)}`, undefined, 'This lesson link is not available. Ask your teacher for a new link.');
+  return getJson(`/api/lessons/${encodeURIComponent(id)}`, undefined, 'This lesson link expired because the server restarted. Ask your teacher to publish it again.');
 }
 
 // Whether the host has its own Gemini key, so a student does not need to paste one.

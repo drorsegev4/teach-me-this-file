@@ -66,11 +66,11 @@ export function createChatService({ ai, store }) {
   async function startingPlan({ key, lessonId }) {
     if (!lessonId) {
       const draft = await store.getDraft(key);
-      if (!draft) throw new ChatError('Build a lesson first.', 409);
+      if (!draft) throw new ChatError('This lesson expired because the server restarted. Build it again.', 409);
       return draft;
     }
     const plan = store.getPublished(lessonId);
-    if (!plan) throw new ChatError('This lesson link is not available. Ask your teacher for a new link.', 404);
+    if (!plan) throw new ChatError('This lesson link expired because the server restarted. Ask your teacher to publish it again.', 404);
     return plan;
   }
 

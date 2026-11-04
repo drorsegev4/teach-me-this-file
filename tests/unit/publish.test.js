@@ -98,7 +98,9 @@ test('the oldest entries are dropped past the limit and the newest kept', () => 
 
 test('publish over HTTP: 409 without a draft, then a link a student can open and play', async () => {
   await withServer(async (call, base) => {
-    assert.equal((await call('/api/lessons/publish', { session: teacher, body: {} })).status, 409);
+    const missingDraft = await call('/api/lessons/publish', { session: teacher, body: {} });
+    assert.equal(missingDraft.status, 409);
+    assert.deepEqual(await missingDraft.json(), { error: 'This lesson expired because the server restarted. Build it again.' });
 
     await buildDraft(base, teacher);
     const { id } = await (await call('/api/lessons/publish', { session: teacher, body: {} })).json();
@@ -125,9 +127,11 @@ test('publish over HTTP: 409 without a draft, then a link a student can open and
 
 test('an unknown or malformed lesson link is refused', async () => {
   await withServer(async call => {
-    assert.equal((await call('/api/lessons/doesnotexist')).status, 404);
+    const missingLink = await call('/api/lessons/doesnotexist');
+    assert.equal(missingLink.status, 404);
+    assert.deepEqual(await missingLink.json(), { error: 'This lesson link expired because the server restarted. Ask your teacher to publish it again.' });
     const response = await call('/api/chat/turn', { session: studentA, body: { type: 'start', lessonId: 'nope-nope' } });
-    assert.match(await response.text(), /not available/);
+    assert.match(await response.text(), /This lesson link expired because the server restarted\. Ask your teacher to publish it again\./);
     assert.equal((await call('/api/chat/turn', { session: studentA, body: { type: 'start', lessonId: '../etc' } })).status, 400);
   });
 });
@@ -141,7 +145,7 @@ test('an invalid session id is refused and a missing one uses the shared session
 
 test('starting without a built lesson is refused instead of teaching a sample lesson', async () => {
   const chat = createChatService({ ai: createMockAI(plan), store: { getDraft: async () => null } });
-  await assert.rejects(chat.turn({ type: 'start' }), error => error.status === 409 && /Build a lesson first/.test(error.message));
+  await assert.rejects(chat.turn({ type: 'start' }), error => error.status === 409 && error.message === 'This lesson expired because the server restarted. Build it again.');
   const store = createPlanStore({ ai: createMockAI(plan) });
   assert.equal(store.getDraft('nobody'), null);
 });

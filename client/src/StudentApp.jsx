@@ -42,7 +42,7 @@ export default function StudentApp({ lessonId, apiKey, setApiKey }) {
       {lesson.status === 'loading' && <p role="status" className="mt-4 text-sm text-stone-700">Opening your lesson… The first visit can take up to a minute.</p>}
       {lesson.status === 'missing' && <>
         <h1 className="mt-3 text-xl font-semibold">This lesson is not available</h1>
-        <p className="mt-2 text-sm text-stone-600">{lesson.message} Links stop working when the server restarts.</p>
+        <p className="mt-2 text-sm text-stone-600">{lesson.message}</p>
       </>}
     </div>
   </main>;

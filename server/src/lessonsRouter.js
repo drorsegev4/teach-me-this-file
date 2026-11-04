@@ -89,7 +89,7 @@ export function createLessonsRouter({ store, chat, aiFor }) {
   router.post('/publish', async (req, res) => {
     try {
       const id = await store.publish({ key: sessionKey(req) });
-      if (!id) return res.status(409).json({ error: 'Build a lesson first.' });
+      if (!id) return res.status(409).json({ error: 'This lesson expired because the server restarted. Build it again.' });
       res.json({ id });
     } catch (error) {
       sendFailure(res, error);
@@ -99,7 +99,7 @@ export function createLessonsRouter({ store, chat, aiFor }) {
   // Public welcome content: lesson overview and topic titles, never internal goals or source quotes.
   router.get('/:id', (req, res) => {
     const plan = store.getPublished(req.params.id);
-    if (!plan) return res.status(404).json({ error: 'This lesson link is not available. Ask your teacher for a new link.' });
+    if (!plan) return res.status(404).json({ error: 'This lesson link expired because the server restarted. Ask your teacher to publish it again.' });
     res.json({ id: req.params.id, rules: plan.rules, stepCount: plan.steps.length,
       topics: plan.steps.map(step => step.title), introduction: plan.introduction ?? null });
   });
