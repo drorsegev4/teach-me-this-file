@@ -56,12 +56,12 @@ This took longer than the suggested four hours: about 20 hours, from 28 Oct to 3
 ## Weaknesses I know about
 
 - The checker is a model and can be wrong. In one of three runs it accepted a student who pasted back the tutor's own explanation. I tried a checker rule for it, it did not help, and I reverted it. The checker is also stricter on Gemini than on Groq: a correct answer naming two of the four body reactions passed only 1 of 3 runs.
-- The tutor's questions sometimes contain the answer. It quotes the source passage and then asks about it, so a student can pass by repeating the quote. With more time, I would change the tutor prompt so its questions never contain the answer. The quote would be a reference, not a hint toward the answer.
+- The tutor's questions and corrections sometimes contain the answer. It quotes the source passage and then asks about it, or it fixes a mistake by stating the right idea, so a student can pass by repeating it. With more time, I would change the tutor prompt so its questions and corrections never contain the answer. The quote would be a reference, not a hint toward the answer.
 - The tutor's "application" questions are often close to recall.
 - My automated tutor checks are heuristics. They cannot judge factual grounding or age suitability, so I reviewed replies by hand.
 - Large files are fragile on the free tier. A 42-page Hebrew PDF (1.3 MB) passed the limits, but one chunk could not be mapped reliably, so the build stopped. Short files work. I did not confirm the cause.
 - Rebuilding a plan clears the current preview. If the rebuild fails, the lesson is lost.
-- State is in memory. When the free host sleeps or redeploys, drafts, published links and progress are lost. A link published earlier can stop working. The app now explains that the lesson expired: teachers are asked to rebuild, and students are asked to contact their teacher to publish it again. Build, publish and test in one sitting.
+- State is in memory. When the free host sleeps or redeploys, drafts, published links and progress are lost. A link published earlier can stop working, and the error message then says "Build a lesson first", which is misleading. Build, publish and test in one sitting.
 - Render's free tier sleeps after about 15 minutes. The first visit can take up to a minute.
 - Scanned PDFs, images, formulas and tables are not interpreted.
 - The 15-minute limit is a string passed to the tutor. It is not measured.
@@ -89,5 +89,7 @@ Scenarios, each written as "when X, the tutor must Y":
 3. **The student tries to hack the lesson.** The tutor ignores it. The step never counts as understood. Checked by the gaming row: no `understood` in any run. If a student keeps trying at attempt 4, they can choose Move on and reach the end without understanding. I accept this. A student who wants to skip everything will not learn even if I block them, and a trapped student gets frustrated and leaves. The app records each skipped step as not understood. A test at the end would make this stronger, and I would add it with more time.
 4. **The student asks something outside the file.** The tutor says so and returns to the step. Checked by the `off_file` row: 3 of 3 on Groq and Gemini.
 5. **The student pastes the tutor's explanation back.** The step must not count. Checked by 3 manual runs on Gemini: one advanced, two did not. The dataset does not cover it.
+
+6. **The student answers wrong.** The tutor does not just give the answer. It says the answer is not right yet, may give a hint, and asks the student to produce the idea. Checked by 10 manual runs on Gemini, with five different wrong answers on the sympathetic step. The checker returned `keep_going` every time, and the student still had to produce the answer every time. The tutor often named the right direction or the right system, and twice it asked a two-option question that a student can guess. I accept this as scaffolding. On another step, in an earlier check, it once stated the answer outright.
 
 One check found a problem that structural tests missed. A report passed every structural check, but my review of the replies found needless analogies. I traced it to a conflicting rule in `audience.js` and removed it. A passing test did not mean good teaching.

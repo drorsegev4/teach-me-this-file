@@ -62,13 +62,11 @@ npm start        # API and client on http://127.0.0.1:3001
 
 ## Configuration
 
-| Name | Purpose |
-| --- | --- |
-| `GEMINI_API_KEY` | Host key, used when the user pastes none. Server only. |
-| `GEMINI_MODEL` | Optional. Defaults to `gemini-3.8-flash`. |
-| `MATERIAL_TOKEN_BUDGET` | Optional. Estimated tokens per document chunk. Default 4000. |
-| `AI_MODE` | Set to `mock` for fake AI replies. |
-| `PORT`, `HOST` | API port (default 3001) and interface (`0.0.0.0` on Render). |
+- `GEMINI_API_KEY`: host key, used when the user pastes none. Server only.
+- `GEMINI_MODEL`: optional. Defaults to `gemini-3.8-flash`.
+- `MATERIAL_TOKEN_BUDGET`: optional. Estimated tokens per document chunk. Default 4000.
+- `AI_MODE`: set to `mock` for fake AI replies.
+- `PORT` and `HOST`: API port (default 3001) and interface (`0.0.0.0` on Render).
 
 ## Tests and evals
 
